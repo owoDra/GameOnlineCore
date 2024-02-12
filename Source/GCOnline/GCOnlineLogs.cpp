@@ -1,0 +1,18 @@
+﻿// Copyright (C) 2024 owoDra
+
+#include "GCOnlineLogs.h"
+
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineAchievements);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineAuth);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineCommerce);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineConnectivity);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineLeaderboards);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineLobbies);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlinePresence);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlinePrivileges);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineSessions);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineSocial);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineStats);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineTitleFile);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineUserFile);
+DEFINE_LOG_CATEGORY(LogGameCore_OnlineUserInfo);
