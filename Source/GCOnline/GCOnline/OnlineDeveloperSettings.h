@@ -4,7 +4,7 @@
 
 #include "Engine/DeveloperSettings.h"
 
-#include "Type/OnlineServiceTypes.h"
+#include "Type/OnlineServiceContextTypes.h"
 #include "Type/OnlinePrivilegeTypes.h"
 
 #include "OnlineDeveloperSettings.generated.h"
@@ -21,11 +21,11 @@ public:
 	FPrivilegesDescriptionSetting();
 
 public:
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (ReadOnlyKeys, ForceInlineRow))
-	TMap<ELocalUserPrivilege, FText> PrivilegeDescriptions;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (EditFixedSize, ReadOnlyKeys, ForceInlineRow))
+	TMap<EOnlinePrivilege, FText> PrivilegeDescriptions;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (ReadOnlyKeys, ForceInlineRow))
-	TMap<ELocalUserPrivilegeResult, FText> PrivilegeResultDescriptions;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (EditFixedSize, ReadOnlyKeys, ForceInlineRow))
+	TMap<EOnlinePrivilegeResult, FText> PrivilegeResultDescriptions;
 };
 
 
@@ -40,17 +40,6 @@ public:
 public:
 	UOnlineDeveloperSettings();
 
-	///////////////////////////////////////////////
-	// Online Services
-public:
-	//
-	// List of online services to be used for addition
-	// 
-	// Tips:
-	//	If not specified, it only accesses the project's default online services and platform-specific online services if they exist.
-	//
-	//UPROPERTY(Config, EditAnywhere, Category = "Online Services", meta = (NoElementDuplicate))
-	//TArray<EOnlineServiceContext> ExtraOnlineServices;
 
 	///////////////////////////////////////////////
 	// Privileges
@@ -58,12 +47,12 @@ protected:
 	//
 	// Description of the user's privileges with respect to the online service
 	//
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Privileges", meta = (ReadOnlyKeys, ForceInlineRow))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Privileges", meta = (EditFixedSize, ReadOnlyKeys, ForceInlineRow))
 	TMap<EOnlineServiceContext, FPrivilegesDescriptionSetting> PrivilegesDescriptions;
 
 public:
-	FText GetPrivilegesDescription(EOnlineServiceContext Context, ELocalUserPrivilege Privilege) const;
-	FText GetPrivilegesResultDescription(EOnlineServiceContext Context, ELocalUserPrivilegeResult Result) const;
+	FText GetPrivilegesDescription(EOnlineServiceContext Context, EOnlinePrivilege Privilege) const;
+	FText GetPrivilegesResultDescription(EOnlineServiceContext Context, EOnlinePrivilegeResult Result) const;
 
 };
 

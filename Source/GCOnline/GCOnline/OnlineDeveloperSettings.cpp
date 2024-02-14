@@ -12,26 +12,26 @@ FPrivilegesDescriptionSetting::FPrivilegesDescriptionSetting()
 {
 	PrivilegeDescriptions =
 	{
-		{ ELocalUserPrivilege::CanPlay						, NSLOCTEXT("GameOnlineCore", "PrivilegeCanPlay"						, "play the game") },
-		{ ELocalUserPrivilege::CanPlayOnline				, NSLOCTEXT("GameOnlineCore", "PrivilegeCanPlayOnline"					, "play online") },
-		{ ELocalUserPrivilege::CanCommunicateViaTextOnline	, NSLOCTEXT("GameOnlineCore", "PrivilegeCanCommunicateViaTextOnline"	, "communicate with text") },
-		{ ELocalUserPrivilege::CanCommunicateViaVoiceOnline	, NSLOCTEXT("GameOnlineCore", "PrivilegeCanCommunicateViaVoiceOnline"	, "communicate with voice") },
-		{ ELocalUserPrivilege::CanUseUserGeneratedContent	, NSLOCTEXT("GameOnlineCore", "PrivilegeCanUseUserGeneratedContent"		, "access user content") },
-		{ ELocalUserPrivilege::CanUseCrossPlay				, NSLOCTEXT("GameOnlineCore", "PrivilegeCanUseCrossPlay"				, "play with other platforms") }
+		{ EOnlinePrivilege::CanPlay							, NSLOCTEXT("GameOnlineCore", "PrivilegeCanPlay"						, "play the game") },
+		{ EOnlinePrivilege::CanPlayOnline					, NSLOCTEXT("GameOnlineCore", "PrivilegeCanPlayOnline"					, "play online") },
+		{ EOnlinePrivilege::CanCommunicateViaTextOnline		, NSLOCTEXT("GameOnlineCore", "PrivilegeCanCommunicateViaTextOnline"	, "communicate with text") },
+		{ EOnlinePrivilege::CanCommunicateViaVoiceOnline	, NSLOCTEXT("GameOnlineCore", "PrivilegeCanCommunicateViaVoiceOnline"	, "communicate with voice") },
+		{ EOnlinePrivilege::CanUseUserGeneratedContent		, NSLOCTEXT("GameOnlineCore", "PrivilegeCanUseUserGeneratedContent"		, "access user content") },
+		{ EOnlinePrivilege::CanUseCrossPlay					, NSLOCTEXT("GameOnlineCore", "PrivilegeCanUseCrossPlay"				, "play with other platforms") }
 	};
 
 	PrivilegeResultDescriptions =
 	{
-		{ ELocalUserPrivilegeResult::Unknown						, NSLOCTEXT("GameOnlineCore", "ResultUnknown"						, "Unknown if the user is allowed") },
-		{ ELocalUserPrivilegeResult::Available						, NSLOCTEXT("GameOnlineCore", "ResultAvailable"						, "The user is allowed") },
-		{ ELocalUserPrivilegeResult::UserNotLoggedIn				, NSLOCTEXT("GameOnlineCore", "ResultUserNotLoggedIn"				, "The user must login") },
-		{ ELocalUserPrivilegeResult::LicenseInvalid					, NSLOCTEXT("GameOnlineCore", "ResultLicenseInvalid"				, "A valid game license is required") },
-		{ ELocalUserPrivilegeResult::VersionOutdated				, NSLOCTEXT("GameOnlineCore", "VersionOutdated"						, "The game or hardware needs to be updated") },
-		{ ELocalUserPrivilegeResult::NetworkConnectionUnavailable	, NSLOCTEXT("GameOnlineCore", "ResultNetworkConnectionUnavailable"	, "A network connection is required") },
-		{ ELocalUserPrivilegeResult::AgeRestricted					, NSLOCTEXT("GameOnlineCore", "ResultAgeRestricted"					, "This age restricted account is not allowed") },
-		{ ELocalUserPrivilegeResult::AccountTypeRestricted			, NSLOCTEXT("GameOnlineCore", "ResultAccountTypeRestricted"			, "This account type does not have access") },
-		{ ELocalUserPrivilegeResult::AccountUseRestricted			, NSLOCTEXT("GameOnlineCore", "ResultAccountUseRestricted"			, "This account is not allowed") },
-		{ ELocalUserPrivilegeResult::PlatformFailure				, NSLOCTEXT("GameOnlineCore", "ResultPlatformFailure"				, "Not allowed") }
+		{ EOnlinePrivilegeResult::Unknown						, NSLOCTEXT("GameOnlineCore", "ResultUnknown"						, "Unknown if the user is allowed") },
+		{ EOnlinePrivilegeResult::Available						, NSLOCTEXT("GameOnlineCore", "ResultAvailable"						, "The user is allowed") },
+		{ EOnlinePrivilegeResult::UserNotLoggedIn				, NSLOCTEXT("GameOnlineCore", "ResultUserNotLoggedIn"				, "The user must login") },
+		{ EOnlinePrivilegeResult::LicenseInvalid				, NSLOCTEXT("GameOnlineCore", "ResultLicenseInvalid"				, "A valid game license is required") },
+		{ EOnlinePrivilegeResult::VersionOutdated				, NSLOCTEXT("GameOnlineCore", "VersionOutdated"						, "The game or hardware needs to be updated") },
+		{ EOnlinePrivilegeResult::NetworkConnectionUnavailable	, NSLOCTEXT("GameOnlineCore", "ResultNetworkConnectionUnavailable"	, "A network connection is required") },
+		{ EOnlinePrivilegeResult::AgeRestricted					, NSLOCTEXT("GameOnlineCore", "ResultAgeRestricted"					, "This age restricted account is not allowed") },
+		{ EOnlinePrivilegeResult::AccountTypeRestricted			, NSLOCTEXT("GameOnlineCore", "ResultAccountTypeRestricted"			, "This account type does not have access") },
+		{ EOnlinePrivilegeResult::AccountUseRestricted			, NSLOCTEXT("GameOnlineCore", "ResultAccountUseRestricted"			, "This account is not allowed") },
+		{ EOnlinePrivilegeResult::PlatformFailure				, NSLOCTEXT("GameOnlineCore", "ResultPlatformFailure"				, "Not allowed") }
 	};
 }
 
@@ -54,7 +54,7 @@ UOnlineDeveloperSettings::UOnlineDeveloperSettings()
 
 // Privileges
 
-FText UOnlineDeveloperSettings::GetPrivilegesDescription(EOnlineServiceContext Context, ELocalUserPrivilege Privilege) const
+FText UOnlineDeveloperSettings::GetPrivilegesDescription(EOnlineServiceContext Context, EOnlinePrivilege Privilege) const
 {
 	if (auto* FoundRow{ PrivilegesDescriptions.Find(Context) })
 	{
@@ -67,7 +67,7 @@ FText UOnlineDeveloperSettings::GetPrivilegesDescription(EOnlineServiceContext C
 	return FText::GetEmpty();
 }
 
-FText UOnlineDeveloperSettings::GetPrivilegesResultDescription(EOnlineServiceContext Context, ELocalUserPrivilegeResult Result) const
+FText UOnlineDeveloperSettings::GetPrivilegesResultDescription(EOnlineServiceContext Context, EOnlinePrivilegeResult Result) const
 {
 	if (auto* FoundRow{ PrivilegesDescriptions.Find(Context) })
 	{

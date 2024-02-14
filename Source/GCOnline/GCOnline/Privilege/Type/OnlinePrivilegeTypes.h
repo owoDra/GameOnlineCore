@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "Type/OnlineServiceTypes.h"
+#include "Type/OnlineServiceContextTypes.h"
+#include "Type/OnlineServiceResultTypes.h"
 
 #include "OnlinePrivilegeTypes.generated.h"
 
-class ULocalUserAccountInfo;
+class ULocalPlayer;
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -16,7 +17,7 @@ class ULocalUserAccountInfo;
  * Enum specifying different privileges and capabilities available to a user
  */
 UENUM(BlueprintType)
-enum class ELocalUserPrivilege : uint8
+enum class EOnlinePrivilege : uint8
 {
 	// Whether the user can play at all, online or offline
 	CanPlay,
@@ -48,7 +49,7 @@ enum class ELocalUserPrivilege : uint8
  * Enum giving specific reasons why a user may or may not use a certain privilege
  */
 UENUM(BlueprintType)
-enum class ELocalUserPrivilegeResult : uint8
+enum class EOnlinePrivilegeResult : uint8
 {
 	// State is unknown and needs to be queried
 	Unknown,
@@ -82,50 +83,15 @@ enum class ELocalUserPrivilegeResult : uint8
 };
 
 
-/**
- * Enum specifying the general availability of a feature or privilege, this combines information from multiple sources
- */
-UENUM(BlueprintType)
-enum class ELocalUserAvailability : uint8
-{
-	// State is completely unknown and needs to be queried
-	Unknown,
-
-	// This feature is fully available for use right now
-	NowAvailable,
-
-	// This might be available after the completion of normal login procedures
-	PossiblyAvailable,
-
-	// This feature is not available now because of something like network connectivity but may be available in the future
-	CurrentlyUnavailable,
-
-	// This feature will never be available for the rest of this session due to hard account or platform restrictions
-	AlwaysUnavailable,
-
-	// Invalid feature
-	Invalid,
-};
-
-
 ////////////////////////////////////////////////////////////////////////
 // Delegates
-
-/** 
- * Delegate when a privilege changes, this can be bound to see if online status/etc changes during gameplay 
- */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FLocalUserAvailabilityChangedDelegate
-												, const ULocalUserAccountInfo*	, UserInfo
-												, ELocalUserPrivilege			, Privilege
-												, ELocalUserAvailability		, OldAvailability
-												, ELocalUserAvailability		, NewAvailability);
 
 /**
  * Delegate notifies that the save has been loaded
  */
-DECLARE_DELEGATE_FiveParams(FLocalUserPrivilegeQueryDelegate
-								, ULocalUserAccountInfo*				/* UserInfo */
-								, EOnlineServiceContext					/* Context */
-								, ELocalUserPrivilege					/* DesiredPrivilege */
-								, ELocalUserPrivilegeResult				/* PrivilegeResult */
-								, const TOptional<FOnlineErrorType>&	/* Error */);
+DECLARE_DELEGATE_FiveParams(FOnlinePrivilegeQueryDelegate
+								, const ULocalPlayer*		/* LocalPlayer */
+								, EOnlineServiceContext		/* Context */
+								, EOnlinePrivilege			/* DesiredPrivilege */
+								, EOnlinePrivilegeResult	/* PrivilegeResult */
+								, FOnlineServiceResult		/* ServiceResult */);

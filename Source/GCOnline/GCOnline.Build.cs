@@ -13,6 +13,11 @@ public class GCOnline : ModuleRules
             {
                 ModuleDirectory,
                 ModuleDirectory + "/GCOnline",
+                ModuleDirectory + "/GCOnline/Service",
+                ModuleDirectory + "/GCOnline/Auth",
+                ModuleDirectory + "/GCOnline/Lobby",
+                ModuleDirectory + "/GCOnline/LocalUser",
+                ModuleDirectory + "/GCOnline/Privilege",
             }
         );
 
@@ -21,9 +26,7 @@ public class GCOnline : ModuleRules
             {
                 "Core", "CoreUObject", "Engine",
 
-                "CoreOnline", "GameplayTags",
-
-                "OnlineServicesInterface",
+                "CoreOnline", "OnlineServicesInterface",
             }
         );
 
@@ -32,7 +35,7 @@ public class GCOnline : ModuleRules
             {
                 "DeveloperSettings", "ApplicationCore",
 
-                "OnlineSubsystemUtils", "CommonUI",
+                "OnlineSubsystemUtils",
             }
         );
     }

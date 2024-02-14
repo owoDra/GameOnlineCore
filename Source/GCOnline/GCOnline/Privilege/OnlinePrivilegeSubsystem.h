@@ -4,7 +4,6 @@
 
 #include "Subsystems/GameInstanceSubsystem.h"
 
-#include "Type/OnlineServiceTypes.h"
 #include "Type/OnlinePrivilegeTypes.h"
 
 // OSSv2
@@ -30,7 +29,8 @@ namespace UE::Online
 }
 using namespace UE::Online;
 
-class ULocalUserAccountInfo;
+class UOnlineServiceSubsystem;
+struct FUniqueNetIdRepl;
 
 ///////////////////////////////////////////////////
 
@@ -54,84 +54,39 @@ public:
     ///////////////////////////////////////////////////////////////////////
     // Initialization
 public:
+	UPROPERTY(Transient)
+    TObjectPtr<UOnlineServiceSubsystem> OnlineServiceSubsystem{ nullptr };
+
+public:
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
     virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
-
-
-    ///////////////////////////////////////////////////////////////////////
-    // Context Cache
-protected:
-    /**
-     * Internal structure of cache information for pointers to use the Auth interface in this subsystem.
-     */
-    struct FOnlineServiceContextCache
-    {
-    public:
-        FOnlineServiceContextCache() = default;
-
-        FOnlineServiceContextCache(const IOnlineServicesPtr& InOnlineServices)
-            : OnlineServices(InOnlineServices)
-        {
-            check(OnlineServices.IsValid());
-        }
-
-        ~FOnlineServiceContextCache() { Reset(); }
-
-    public:
-        //
-        // Online services, accessor to specific services
-        //
-        IOnlineServicesPtr OnlineServices;
-
-    public:
-        /** 
-         * Resets state, important to clear all shared ptrs 
-         */
-        void Reset()
-        {
-            OnlineServices.Reset();
-        }
-
-        /**
-         * Returns cached pointers are valid
-         */
-        bool IsValid() const
-        {
-            return OnlineServices.IsValid();
-        }
-    };
-
-    //
-    // ContextCache per OnlineService
-    //
-    TOnlineServiceContextContainer<FOnlineServiceContextCache> ContextCaches;
 
 protected:
     /**
      * Returns privileges interface of specific type, will return null if there is no type
      */
-    IPrivilegesPtr GetOnlinePrivileges(EOnlineServiceContext Context = EOnlineServiceContext::Game) const;
+    IPrivilegesPtr GetPrivilegesInterface(EOnlineServiceContext Context = EOnlineServiceContext::Default) const;
 
     
     ///////////////////////////////////////////////////////////////////////
     // Privilege
 public:
-    virtual ELocalUserPrivilege ConvertOnlineServicesPrivilege(EUserPrivileges Privilege) const;
-    virtual EUserPrivileges ConvertOnlineServicesPrivilege(ELocalUserPrivilege Privilege) const;
-    virtual ELocalUserPrivilegeResult ConvertOnlineServicesPrivilegeResult(EUserPrivileges Privilege, EPrivilegeResults Results) const;
+    virtual EOnlinePrivilege ConvertOnlineServicesPrivilege(EUserPrivileges Privilege) const;
+    virtual EUserPrivileges ConvertOnlineServicesPrivilege(EOnlinePrivilege Privilege) const;
+    virtual EOnlinePrivilegeResult ConvertOnlineServicesPrivilegeResult(EUserPrivileges Privilege, EPrivilegeResults Results) const;
 
     /** 
      * Returns human readable string for privilege checks 
      */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Privilege")
-    virtual FText GetPrivilegeDescription(EOnlineServiceContext Context, ELocalUserPrivilege Privilege) const;
+    virtual FText GetPrivilegeDescription(EOnlineServiceContext Context, EOnlinePrivilege Privilege) const;
 
     /**
      * Returns human readable string for privilege results
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Privilege")
-    virtual FText GetPrivilegeResultDescription(EOnlineServiceContext Context, ELocalUserPrivilegeResult Result) const;
+    virtual FText GetPrivilegeResultDescription(EOnlineServiceContext Context, EOnlinePrivilegeResult Result) const;
 
 public:
     /**
@@ -139,15 +94,15 @@ public:
      */
 	UFUNCTION(BlueprintCallable, Category = "Privilege", meta = (DisplayName = "QueryUserPrivilege"))
     bool BP_QueryUserPrivilege(
-        ULocalUserAccountInfo* TargetUser
-        , EOnlineServiceContext Context
-        , ELocalUserPrivilege DesiredPrivilege);
+        const ULocalPlayer* LocalPlayer
+        , EOnlineServiceContext Context = EOnlineServiceContext::Default
+        , EOnlinePrivilege DesiredPrivilege = EOnlinePrivilege::CanPlayOnline);
 
     bool QueryUserPrivilege(
-        TWeakObjectPtr<ULocalUserAccountInfo> TargetUser
-        , EOnlineServiceContext Context
-        , ELocalUserPrivilege DesiredPrivilege
-        , FLocalUserPrivilegeQueryDelegate Delegate = FLocalUserPrivilegeQueryDelegate());
+        const ULocalPlayer* LocalPlayer
+        , EOnlineServiceContext Context = EOnlineServiceContext::Default
+        , EOnlinePrivilege DesiredPrivilege = EOnlinePrivilege::CanPlayOnline
+        , FOnlinePrivilegeQueryDelegate Delegate = FOnlinePrivilegeQueryDelegate());
 
 protected:
     /**
@@ -155,9 +110,9 @@ protected:
      */
     virtual void HandleQueryPrivilegeComplete(
         const TOnlineResult<FQueryUserPrivilege>& Result
-        , TWeakObjectPtr<ULocalUserAccountInfo> UserInfo
+        , const ULocalPlayer* LocalPlayer
         , EOnlineServiceContext Context
         , EUserPrivileges DesiredPrivilege
-        , FLocalUserPrivilegeQueryDelegate Delegate = FLocalUserPrivilegeQueryDelegate());
+        , FOnlinePrivilegeQueryDelegate Delegate = FOnlinePrivilegeQueryDelegate());
 
 };
