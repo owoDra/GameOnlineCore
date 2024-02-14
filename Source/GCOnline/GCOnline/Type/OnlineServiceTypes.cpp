@@ -8,9 +8,9 @@
 
 
 /////////////////////////////////////////////////////////////////////
-// FOnlineServiceTaskResult
+// FOnlineResultInformation
 
-void FOnlineServiceTaskResult::FromOnlineError(const FOnlineErrorType& InOnlineError)
+void FOnlineResultInformation::FromOnlineError(const FOnlineErrorType& InOnlineError)
 {
 	bWasSuccessful = (InOnlineError != Errors::Success());
 	ErrorId = InOnlineError.GetErrorId();

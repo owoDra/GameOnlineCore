@@ -69,11 +69,11 @@ enum class EOnlineServiceTaskState : uint8
  * Detailed information about the online error. Effectively a wrapper for FOnlineError. 
  */
 USTRUCT(BlueprintType)
-struct FOnlineServiceTaskResult
+struct FOnlineResultInformation
 {
 	GENERATED_BODY()
 public:
-	FOnlineServiceTaskResult() = default;
+	FOnlineResultInformation() = default;
 
 public:
 	//
