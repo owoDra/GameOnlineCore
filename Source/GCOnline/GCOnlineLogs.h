@@ -4,6 +4,8 @@
 
 #include "Logging/LogMacros.h"
 
+GCONLINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGameCore_LocalUser, Log, All);
+
 GCONLINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGameCore_OnlineAchievements, Log, All);
 GCONLINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGameCore_OnlineAuth, Log, All);
 GCONLINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGameCore_OnlineCommerce, Log, All);

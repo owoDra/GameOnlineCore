@@ -13,6 +13,7 @@ public class GCOnline : ModuleRules
             {
                 ModuleDirectory,
                 ModuleDirectory + "/GCOnline",
+                ModuleDirectory + "/GCOnline/Connectivity",
                 ModuleDirectory + "/GCOnline/Service",
                 ModuleDirectory + "/GCOnline/Auth",
                 ModuleDirectory + "/GCOnline/Lobby",

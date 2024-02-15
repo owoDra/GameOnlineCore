@@ -3,6 +3,7 @@
 #include "OnlineLocalUserSubsystem.h"
 
 #include "OnlineServiceSubsystem.h"
+#include "OnlineConnectivitySubsystem.h"
 
 #include "Online/OnlineServices.h"
 #include "Online/Auth.h"
@@ -31,16 +32,21 @@ void UOnlineLocalUserSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UOnlineLocalUserSubsystem::InitializeLocalUser(FInputDeviceId InPrimaryInputDevice, bool bCanUseGuestLogin)
 {
-	bLocalUserInitialized = true;
+	if (!bLocalUserInitialized)
+	{
+		bLocalUserInitialized = true;
 
-	PrimaryInputDeviceId = InPrimaryInputDevice;
-	PlatformUserId = IPlatformInputDeviceMapper::Get().GetUserForInputDevice(PrimaryInputDeviceId);
+		LoginState = ELocalUserLoginState::Unknown;
 
-	auto* LocalPlayer{ GetLocalPlayerChecked() };
+		PrimaryInputDeviceId = InPrimaryInputDevice;
+		PlatformUserId = IPlatformInputDeviceMapper::Get().GetUserForInputDevice(PrimaryInputDeviceId);
 
-	bCanBeGuest = LocalPlayer->IsPrimaryPlayer() ? false : bCanUseGuestLogin;
+		auto* LocalPlayer{ GetLocalPlayerChecked() };
 
-	LocalPlayer->SetPlatformUserId(PlatformUserId);
+		bCanBeGuest = LocalPlayer->IsPrimaryPlayer() ? false : bCanUseGuestLogin;
+
+		LocalPlayer->SetPlatformUserId(PlatformUserId);
+	}
 }
 
 void UOnlineLocalUserSubsystem::ResetLocalUser()
@@ -258,13 +264,11 @@ ELocalUserOnlineAvailability UOnlineLocalUserSubsystem::GetPrivilegeAvailability
 		(Privilege == EOnlinePrivilege::CanCommunicateViaTextOnline) ||
 		(Privilege == EOnlinePrivilege::CanCommunicateViaVoiceOnline))
 	{
-		/// @TODO Check by connectivity subsystem
-
-		/*auto* Subsystem{ GetSubsystem() };
-		if (ensure(Subsystem) && !Subsystem->HasOnlineConnection(EOnlineServiceContext::Game))
+		auto* Subsystem{ UGameInstance::GetSubsystem<UOnlineConnectivitySubsystem>(GetGameInstance()) };
+		if (ensure(Subsystem) && !Subsystem->HasOnlineConnection(Context))
 		{
 			return ELocalUserOnlineAvailability::CurrentlyUnavailable;
-		}*/
+		}
 	}
 
 	// Failed a prior login attempt

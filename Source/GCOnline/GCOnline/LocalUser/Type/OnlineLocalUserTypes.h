@@ -9,35 +9,6 @@
 // Enums
 
 /**
- * Enum describing the state of initialization for a specific local user
- */
-UENUM(BlueprintType)
-enum class ELocalUserLoginState : uint8
-{
-	// User has not started login process
-	Unknown,
-
-	// Player is in the process of acquiring a user id with local login
-	DoingInitialLogin,
-
-	// Player is performing the network login, they have already logged in locally
-	DoingNetworkLogin,
-
-	// Player failed to log in at all
-	FailedToLogin,
-
-	// Player is logged in and has access to online functionality
-	LoggedInOnline,
-
-	// Player is logged in locally (either guest or real user), but cannot perform online actions
-	LoggedInLocalOnly,
-
-	// Invalid state or user 
-	Invalid,
-};
-
-
-/**
  * Enum specifying the general availability of a feature or privilege, this combines information from multiple sources
  */
 UENUM(BlueprintType)

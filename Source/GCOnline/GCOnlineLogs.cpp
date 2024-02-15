@@ -2,6 +2,8 @@
 
 #include "GCOnlineLogs.h"
 
+DEFINE_LOG_CATEGORY(LogGameCore_LocalUser);
+
 DEFINE_LOG_CATEGORY(LogGameCore_OnlineAchievements);
 DEFINE_LOG_CATEGORY(LogGameCore_OnlineAuth);
 DEFINE_LOG_CATEGORY(LogGameCore_OnlineCommerce);

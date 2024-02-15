@@ -7,6 +7,7 @@
 #include "Type/OnlineServiceContextTypes.h"
 #include "Type/OnlinePrivilegeTypes.h"
 #include "Type/OnlineLocalUserTypes.h"
+#include "Type/OnlineAuthLoginTypes.h"
 
 #include "OnlineLocalUserSubsystem.generated.h"
 
