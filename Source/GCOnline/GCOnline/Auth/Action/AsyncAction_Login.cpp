@@ -3,6 +3,7 @@
 #include "AsyncAction_Login.h"
 
 #include "OnlineAuthSubsystem.h"
+#include "OnlineLocalUserSubsystem.h"
 
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "TimerManager.h"
@@ -18,7 +19,7 @@ UAsyncAction_Login* UAsyncAction_Login::LoginForLocalPlay(UOnlineAuthSubsystem* 
 	if (Target && Action->IsRegistered())
 	{
 		Action->Subsystem = Target;
-		Action->LocalPlayer = InPlayerController ? InPlayerController->GetLocalPlayer() : nullptr;
+		Action->PlayerController = InPlayerController ;
 
 		Action->Params.RequestedPrivilege = EOnlinePrivilege::CanPlay;
 	}
@@ -38,7 +39,7 @@ UAsyncAction_Login* UAsyncAction_Login::LoginForOnlinePlay(UOnlineAuthSubsystem*
 	if (Target && Action->IsRegistered())
 	{
 		Action->Subsystem = Target;
-		Action->LocalPlayer = InPlayerController ? InPlayerController->GetLocalPlayer() : nullptr;
+		Action->PlayerController = InPlayerController;
 
 		Action->Params.RequestedPrivilege = EOnlinePrivilege::CanPlayOnline;
 	}
@@ -57,7 +58,7 @@ void UAsyncAction_Login::Activate()
 	{
 		Params.OnLocalUserLoginComplete.BindUFunction(this, GET_FUNCTION_NAME_CHECKED(UAsyncAction_Login, HandleInitializationComplete));
 
-		if (!Subsystem->TryLogin(LocalPlayer.Get(), Params))
+		if (!Subsystem->TryLogin(PlayerController.Get(), Params))
 		{
 			// Call failure next frame
 
@@ -75,7 +76,8 @@ void UAsyncAction_Login::Activate()
 
 void UAsyncAction_Login::HandleFailure()
 {
-	auto* LocalUser{ ULocalPlayer::GetSubsystem<UOnlineLocalUserSubsystem>(LocalPlayer.Get()) };
+	auto* LocalPlayer{ PlayerController.IsValid() ? PlayerController->GetLocalPlayer() : nullptr };
+	auto* LocalUser{ ULocalPlayer::GetSubsystem<UOnlineLocalUserSubsystem>(LocalPlayer) };
 
 	FOnlineServiceResult Result;
 	Result.bWasSuccessful = false;
@@ -89,7 +91,7 @@ void UAsyncAction_Login::HandleInitializationComplete(UOnlineLocalUserSubsystem*
 {
 	if (ShouldBroadcastDelegates())
 	{
-		OnInitializationComplete.Broadcast(LocalPlayer.Get(), Result, OnlineContext);
+		OnInitializationComplete.Broadcast(PlayerController.Get(), Result, OnlineContext);
 	}
 
 	SetReadyToDestroy();

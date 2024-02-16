@@ -2,6 +2,8 @@
 
 #include "OnlineDeveloperSettings.h"
 
+#include "Online/OnlineSessionNames.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OnlineDeveloperSettings)
 
 
@@ -44,10 +46,20 @@ UOnlineDeveloperSettings::UOnlineDeveloperSettings()
 	CategoryName = TEXT("Game XXX Core");
 	SectionName = TEXT("Game Online Core");
 
+	// Privileges
+
 	PrivilegesDescriptions =
 	{
 		{ EOnlineServiceContext::Default, FPrivilegesDescriptionSetting() },
 		{ EOnlineServiceContext::Platform, FPrivilegesDescriptionSetting() },
+	};
+
+	// Lobbies
+
+	LobbyAttributeRedirects =
+	{
+		{ SETTING_GAMEMODE, FName(TEXT("LOBBYSERVICEATTRIBUTE1")) },
+		{ SETTING_MAPNAME, FName(TEXT("LOBBYSERVICEATTRIBUTE2")) },
 	};
 }
 
@@ -78,4 +90,31 @@ FText UOnlineDeveloperSettings::GetPrivilegesResultDescription(EOnlineServiceCon
 	}
 
 	return FText::GetEmpty();
+}
+
+
+// Lobbies
+
+FName UOnlineDeveloperSettings::RedirectLobbyAttribute_ToOnlineService(const FName& InName) const
+{
+	auto* Found{ LobbyAttributeRedirects.Find(InName) };
+	return Found ? *Found : InName;
+}
+
+FName UOnlineDeveloperSettings::RedirectLobbyAttribute_ToProject(const FName& InName) const
+{
+	auto* Found{ LobbyAttributeRedirects.FindKey(InName) };
+	return Found ? *Found : InName;
+}
+
+FName UOnlineDeveloperSettings::RedirectUserLobbyAttribute_ToOnlineService(const FName& InName) const
+{
+	auto* Found{ LobbyUserAttributeRedirects.Find(InName) };
+	return Found ? *Found : InName;
+}
+
+FName UOnlineDeveloperSettings::RedirectUserLobbyAttribute_ToProject(const FName& InName) const
+{
+	auto* Found{ LobbyUserAttributeRedirects.FindKey(InName) };
+	return Found ? *Found : InName;
 }

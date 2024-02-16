@@ -10,7 +10,6 @@
 
 class UOnlineAuthSubsystem;
 class UOnlineLocalUserSubsystem;
-class ULocalPlayer;
 class APlayerController;
 
 
@@ -25,7 +24,7 @@ class GCONLINE_API UAsyncAction_Login : public UCancellableAsyncAction
 protected:
 	TWeakObjectPtr<UOnlineAuthSubsystem> Subsystem;
 
-	TWeakObjectPtr<ULocalPlayer> LocalPlayer;
+	TWeakObjectPtr<APlayerController> PlayerController;
 	FLocalUserLoginParams Params;
 
 public:

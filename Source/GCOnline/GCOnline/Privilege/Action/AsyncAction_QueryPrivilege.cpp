@@ -51,7 +51,7 @@ void UAsyncAction_QueryPrivilege::HandleQueryComplete(const ULocalPlayer* InLoca
 {
 	if (ShouldBroadcastDelegates())
 	{
-		OnQuery.Broadcast(InLocalPlayer, InContext, InDesiredPrivilege, InPrivilegeResult, InResult);
+		OnQuery.Broadcast(InLocalPlayer ? InLocalPlayer->GetPlayerController(nullptr) : nullptr, InContext, InDesiredPrivilege, InPrivilegeResult, InResult);
 	}
 
 	SetReadyToDestroy();

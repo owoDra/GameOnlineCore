@@ -133,10 +133,11 @@ FAccountId UOnlineAuthSubsystem::GetLocalUserNetId(FPlatformUserId PlatformUser,
 
 // Login
 
-bool UOnlineAuthSubsystem::TryLogin(const ULocalPlayer* LocalPlayer, FLocalUserLoginParams Params)
+bool UOnlineAuthSubsystem::TryLogin(const APlayerController* PlayerController, FLocalUserLoginParams Params)
 {
 	// Check is local player valid
 
+	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
 	if (!LocalPlayer)
 	{
 		UE_LOG(LogGameCore_OnlineAuth, Error, TEXT("Try login failed: Invalid local player"));
@@ -180,10 +181,11 @@ bool UOnlineAuthSubsystem::TryLogin(const ULocalPlayer* LocalPlayer, FLocalUserL
 	return true;
 }
 
-bool UOnlineAuthSubsystem::CancelLogin(const ULocalPlayer* LocalPlayer)
+bool UOnlineAuthSubsystem::CancelLogin(const APlayerController* PlayerController)
 {
 	// Check is local player valid
 
+	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
 	if (!LocalPlayer)
 	{
 		UE_LOG(LogGameCore_OnlineAuth, Error, TEXT("Cancel login failed: Invalid local player"));
@@ -217,10 +219,11 @@ bool UOnlineAuthSubsystem::CancelLogin(const ULocalPlayer* LocalPlayer)
 	return true;
 }
 
-bool UOnlineAuthSubsystem::TryLogout(ULocalPlayer* LocalPlayer, bool bDestroyPlayer)
+bool UOnlineAuthSubsystem::TryLogout(const APlayerController* PlayerController, bool bDestroyPlayer)
 {
 	// Check is local player valid
 
+	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
 	if (!LocalPlayer)
 	{
 		UE_LOG(LogGameCore_OnlineAuth, Error, TEXT("Try logout failed: Invalid local player"));
@@ -234,7 +237,7 @@ bool UOnlineAuthSubsystem::TryLogout(ULocalPlayer* LocalPlayer, bool bDestroyPla
 
 	// Cancel login first if it is logging in progress
 
-	CancelLogin(LocalPlayer);
+	CancelLogin(PlayerController);
 
 	// Logout if not guest
 
@@ -607,8 +610,11 @@ void UOnlineAuthSubsystem::HandleUserLoginFailed(UOnlineLocalUserSubsystem* Loca
 
 	// Call callbacks
 
-	Params.OnLocalUserLoginComplete.ExecuteIfBound(LocalUser->GetLocalPlayer(), Result, Params.OnlineContext);
-	OnUserLoginComplete.Broadcast(LocalUser->GetLocalPlayer(), Result, Params.OnlineContext);
+	auto* LocalPlayer{ LocalUser->GetLocalPlayer() };
+	auto* PlayerController{ LocalPlayer ? LocalPlayer->GetPlayerController(nullptr) : nullptr };
+
+	Params.OnLocalUserLoginComplete.ExecuteIfBound(PlayerController, Result, Params.OnlineContext);
+	OnUserLoginComplete.Broadcast(PlayerController, Result, Params.OnlineContext);
 }
 
 void UOnlineAuthSubsystem::HandleUserLoginSucceeded(UOnlineLocalUserSubsystem* LocalUser, FLocalUserLoginParams Params, FOnlineServiceResult Result)
@@ -640,8 +646,11 @@ void UOnlineAuthSubsystem::HandleUserLoginSucceeded(UOnlineLocalUserSubsystem* L
 
 	// Call callbacks
 
-	Params.OnLocalUserLoginComplete.ExecuteIfBound(LocalUser->GetLocalPlayer(), Result, Params.OnlineContext);
-	OnUserLoginComplete.Broadcast(LocalUser->GetLocalPlayer(), Result, Params.OnlineContext);
+	auto* LocalPlayer{ LocalUser->GetLocalPlayer() };
+	auto* PlayerController{ LocalPlayer ? LocalPlayer->GetPlayerController(nullptr) : nullptr };
+
+	Params.OnLocalUserLoginComplete.ExecuteIfBound(PlayerController, Result, Params.OnlineContext);
+	OnUserLoginComplete.Broadcast(PlayerController, Result, Params.OnlineContext);
 }
 
 

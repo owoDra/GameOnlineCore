@@ -78,6 +78,7 @@ public:
     /**
      * Returns true if we are currently connected to backend servers
      */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Connectivity")
     bool HasOnlineConnection(EOnlineServiceContext Context = EOnlineServiceContext::Default) const;
 
 };

@@ -175,11 +175,6 @@ FText UOnlinePrivilegeSubsystem::GetPrivilegeResultDescription(EOnlineServiceCon
 }
 
 
-bool UOnlinePrivilegeSubsystem::BP_QueryUserPrivilege(const ULocalPlayer* LocalPlayer, EOnlineServiceContext Context, EOnlinePrivilege DesiredPrivilege)
-{
-	return QueryUserPrivilege(LocalPlayer, Context, DesiredPrivilege);
-}
-
 bool UOnlinePrivilegeSubsystem::QueryUserPrivilege(const ULocalPlayer* LocalPlayer, EOnlineServiceContext Context, EOnlinePrivilege DesiredPrivilege, FOnlinePrivilegeQueryDelegate Delegate)
 {
 	if (ensure(LocalPlayer))

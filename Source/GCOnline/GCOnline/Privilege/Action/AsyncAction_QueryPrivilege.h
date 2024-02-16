@@ -17,7 +17,7 @@ class APlayerController;
  * Delegate to notifies query local user privilege
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FAsyncQueryPrivilegeDelegate
-												, const ULocalPlayer*		, LocalPlayer
+												, const APlayerController*	, PlayerController
 												, EOnlineServiceContext		, Context
 												, EOnlinePrivilege			, DesiredPrivilege
 												, EOnlinePrivilegeResult	, PrivilegeResult

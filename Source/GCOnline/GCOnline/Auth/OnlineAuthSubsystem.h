@@ -37,6 +37,7 @@ class UOnlineServiceSubsystem;
 class UOnlineLocalUserSubsystem;
 class UOnlineLocalUserManagerSubsystem;
 class ULocalPlayer;
+class APlayerController;
 
 ///////////////////////////////////////////////////
 
@@ -191,19 +192,19 @@ public:
      *  When the process has succeeded or failed, it will broadcast the OnUserLoginComplete delegate.
      */
     UFUNCTION(BlueprintCallable, Category = "Login")
-    virtual bool TryLogin(const ULocalPlayer* LocalPlayer, FLocalUserLoginParams Params);
+    virtual bool TryLogin(const APlayerController* PlayerController, FLocalUserLoginParams Params);
 
     /** 
      * Cancels the running login process and disable the callback
      */
     UFUNCTION(BlueprintCallable, Category = "Login")
-    virtual bool CancelLogin(const ULocalPlayer* LocalPlayer);
+    virtual bool CancelLogin(const APlayerController* PlayerController);
 
     /** 
      * Tries to process the logout of a local player who is already logged in to some online service or local play.
      */
     UFUNCTION(BlueprintCallable, Category = "Login")
-    virtual bool TryLogout(ULocalPlayer* LocalPlayer, bool bDestroyPlayer = false);
+    virtual bool TryLogout(const APlayerController* PlayerController, bool bDestroyPlayer = false);
 
 protected:
     /**

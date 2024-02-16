@@ -13,6 +13,7 @@
 using ELoginStatusType = UE::Online::ELoginStatus;
 
 class ULocalPlayer;
+class APlayerController;
 class UOnlineLocalUserSubsystem;
 
 
@@ -55,14 +56,14 @@ enum class ELocalUserLoginState : uint8
  * Delegates when initialization processes succeed or fail
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLocalUserLoginCompleteDynamicMulticastDelegate
-	, const ULocalPlayer*	, LocalPlayer
-	, FOnlineServiceResult	, Result
-	, EOnlineServiceContext	, OnlineContext);
+	, const APlayerController*	, PlayerController
+	, FOnlineServiceResult		, Result
+	, EOnlineServiceContext		, OnlineContext);
 
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLocalUserLoginCompleteDynamicDelegate
-	, const ULocalPlayer*	, LocalPlayer
-	, FOnlineServiceResult	, Result
-	, EOnlineServiceContext	, OnlineContext);
+	, const APlayerController*	, PlayerController
+	, FOnlineServiceResult		, Result
+	, EOnlineServiceContext		, OnlineContext);
 
 DECLARE_DELEGATE_FiveParams(FLocalUserLoginCompleteDelegate
 	, UOnlineLocalUserSubsystem*			/*LocalUser*/

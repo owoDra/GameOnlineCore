@@ -92,12 +92,6 @@ public:
     /**
      * Query the local user's account for privileges on available online services
      */
-	UFUNCTION(BlueprintCallable, Category = "Privilege", meta = (DisplayName = "QueryUserPrivilege"))
-    bool BP_QueryUserPrivilege(
-        const ULocalPlayer* LocalPlayer
-        , EOnlineServiceContext Context = EOnlineServiceContext::Default
-        , EOnlinePrivilege DesiredPrivilege = EOnlinePrivilege::CanPlayOnline);
-
     bool QueryUserPrivilege(
         const ULocalPlayer* LocalPlayer
         , EOnlineServiceContext Context = EOnlineServiceContext::Default
