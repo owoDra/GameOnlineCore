@@ -28,6 +28,7 @@ namespace UE::Online
 using namespace UE::Online;
 
 class UOnlineServiceSubsystem;
+class ULobbyResult;
 
 ///////////////////////////////////////////////////
 
@@ -70,60 +71,12 @@ protected:
      */
     ILobbiesPtr GetLobbiesInterface(EOnlineServiceContext Context = EOnlineServiceContext::Default) const;
 
-    
-    //////////////////////////////////////////////////////////////////////
-    // Events
-#pragma region Events
-public:
-    //
-    // Native Delegate when a local user has accepted an invite
-    // 
-    FUserJoinLobbyRequestDelegate OnUserJoinLobbyRequestEvent;
-
-    //
-    // Event broadcast when a local user has accepted an invite
-    //
-    UPROPERTY(BlueprintAssignable, Category = "Events", meta = (DisplayName = "On User Join Requested Lobby"))
-    FUserJoinLobbyRequestDynamicDelegate K2_OnUserJoinLobbyRequestEvent;
-
-
-    //
-    // Native Delegate when a JoinLobby call has completed
-    //
-    FJoinLobbyCompleteDelegate OnJoinLobbyCompleteEvent;
-
-    //
-    // Event broadcast when a JoinLobby call has completed
-    //
-    UPROPERTY(BlueprintAssignable, Category = "Events", meta = (DisplayName = "On Join Lobby Complete"))
-    FJoinLobbyCompleteDynamicDelegate K2_OnJoinLobbyCompleteEvent;
-
-    //
-    // Native Delegate for modifying the connect URL prior to a client travel
-    //
-    FLobbyPreClientTravelDelegate OnPreClientTravelEvent;
-    
-protected:
-    void NotifyUserLobbyRequest(const FPlatformUserId& PlatformUserId, ULobbySearchResult* RequestedLobby, const FOnlineServiceResult& RequestedLobbyResult);
-    void NotifyJoinLobbyComplete(const FOnlineServiceResult& Result);
-   
-
-#pragma endregion
-
 
     //////////////////////////////////////////////////////////////////////
     // Create Lobby
-public:
-    //
-    // Native Delegate when a CreateLobby call has completed
-    // 
-    FLobbyCreateCompleteDelegate OnCreateLobbyCompleteEvent;
-
-    //
-    // Event broadcast when a CreateLobby call has completed
-    //
-    UPROPERTY(BlueprintAssignable, Category = "Events", meta = (DisplayName = "On Create Lobby Complete"))
-    FLobbyCreateCompleteDynamicDelegate K2_OnCreateLobbyCompleteEvent;
+protected:
+    UPROPERTY(Transient)
+    TObjectPtr<ULobbyCreateRequest> OngoingCreateRequest{ nullptr };
 
 public:
     /**
@@ -137,170 +90,128 @@ public:
      */
     virtual bool CreateLobby(
         APlayerController* HostingPlayer
-        , ULobbyCreateRequest* HostRequest
-        , FLobbyCreateCompleteSingleDelegate Delegate = FLobbyCreateCompleteSingleDelegate());
+        , ULobbyCreateRequest* CreateRequest
+        , FLobbyCreateCompleteDelegate Delegate = FLobbyCreateCompleteDelegate());
 
 protected:
     void CreateOnlineLobbyInternal(
         ULocalPlayer* LocalPlayer
-        , ULobbyCreateRequest* HostRequest
-        , FLobbyCreateCompleteSingleDelegate Delegate = FLobbyCreateCompleteSingleDelegate());
+        , ULobbyCreateRequest* CreateRequest
+        , FLobbyCreateCompleteDelegate Delegate = FLobbyCreateCompleteDelegate());
 
     virtual void HandleCreateOnlineLobbyComplete(
         const TOnlineResult<FCreateLobby>& CreateResult
-        , FLobbyCreateCompleteSingleDelegate Delegate);
-
-    void NotifyCreateLobbyComplete(const FOnlineServiceResult& Result);
+        , FLobbyCreateCompleteDelegate Delegate);
 
 
     //////////////////////////////////////////////////////////////////////
-    // Lobby Travel
+    // Search Lobby 
 protected:
-    //
-    // The travel URL that will be used after lobby operations are complete
-    //
-    UPROPERTY(Transient)
-    FString PendingLobbyTravelURL;
+	UPROPERTY(Transient)
+    TObjectPtr<ULobbySearchRequest> OngoingSearchRequest{ nullptr };
 
 public:
     /**
-     * Execute lobby travel if there is currently a pending lobby travel
+     * Creates a LobbySearchRequest with default options for online games, this can be modified after creation
      */
     UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual bool StartPendingLobbyTravel();
+    virtual ULobbySearchRequest* CreateOnlineLobbySearchRequest();
 
-protected:
-    virtual void SetPendingLobbyTravelURL(const FString& URL);
-    virtual void ClearPendingLobbyTravelURL();
-
-
-    //////////////////////////////////////////////////////////////////////
-    // Lobby
-#pragma region Lobby
-protected:
-    //
-    // Settings for the current search
-    //
-    TSharedPtr<FLobbySearchSettings> SearchSettings;
-
-    //
-    // The travel URL that will be used after lobby operations are complete
-    //
-	UPROPERTY(Transient)
-    FString PendingTravelURL;
-
-    //
-    // Most recent result information for a lobby creation attempt, stored here to allow storing error codes for later
-    //
-    UPROPERTY(Transient)
-    FOnlineResultInformation CreateLobbyResult;
-
-    //
-    // True if we want to cancel the lobby after it is created
-    //
-    UPROPERTY(Transient)
-    bool bWantToDestroyPendingLobby{ false };
-
-public:
-    /** 
-     * Creates a host lobby request with default options for online games, this can be modified after creation 
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual UHostLobbyRequest* CreateOnlineHostLobbyRequest();
-
-    /** 
-     * Creates a lobby search object with default options to look for default online games, this can be modified after creation 
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual USearchLobbyRequest* CreateOnlineSearchLobbyRequest();
-
-    
-
-    /** 
-     * Starts a process to look for existing lobbys or create a new one if no viable lobbys are found 
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void QuickPlayLobby(APlayerController* JoiningOrHostingPlayer, USearchLobbyRequest* SearchRequest, UHostLobbyRequest* HostRequest);
-
-    /** 
-     * Starts process to join an existing lobby, if successful this will connect to the specified server 
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void JoinLobby(APlayerController* JoiningPlayer, USearchLobbyResult* SearchResult);
-
-    /** 
+    /**
      * Queries online system for the list of joinable lobbys matching the search request 
      */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void FindLobbies(APlayerController* SearchingPlayer, USearchLobbyRequest* SearchRequest);
+    virtual bool SearchLobby(
+        APlayerController* SearchingPlayer
+        , ULobbySearchRequest* SearchRequest
+        , FLobbySearchCompleteDelegate Delegate = FLobbySearchCompleteDelegate());
 
-    /** 
-     * Clean up any active lobbys, called from cases like returning to the main menu 
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void CleanUpLobbies();
-
-#pragma endregion
-
-
-
-
-    //////////////////////////////////////////////////////////////////////
-    // Quick Play Lobby
-#pragma region Quick Play Lobby
 protected:
-    /** 
-     * Called when a quick play search finishes, can be overridden for game-specific behavior 
-     */
-    virtual void HandleQuickPlaySearchFinished(bool bSucceeded, const FText& ErrorMessage, TWeakObjectPtr<APlayerController> JoiningOrHostingPlayer, TStrongObjectPtr<UHostLobbyRequest> HostRequest);
+    void SearchOnlineLobbyInternal(
+        ULocalPlayer* LocalPlayer
+        , ULobbySearchRequest* SearchRequest
+        , FLobbySearchCompleteDelegate Delegate = FLobbySearchCompleteDelegate());
 
-#pragma endregion
+    virtual void HandleSearchOnlineLobbyComplete(
+        const TOnlineResult<FFindLobbies>& SearchResult
+        , FLobbySearchCompleteDelegate Delegate);
 
 
     //////////////////////////////////////////////////////////////////////
     // Join Lobby
-#pragma region Join Lobby
 protected:
-    void JoinSessionInternal(ULocalPlayer* LocalPlayer, USearchLobbyResult* Request);
+    //
+    // List of lobbies currently participating as hosts or guests
+    // 
+    // Key   : Lobby's Local Name
+    // Value : Lobby info
+    //
+    UPROPERTY(Transient)
+    TMap<FName, TObjectPtr<ULobbyResult>> JoiningLobbies;
 
-#pragma endregion
+    UPROPERTY(Transient)
+    TObjectPtr<ULobbyJoinRequest> OngoingJoinRequest{ nullptr };
+
+public:
+    /**
+     * Get a lobby that you have already joined as a current host or guest
+     */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Lobby")
+    virtual const ULobbyResult* GetJoinedLobby(FName LocalName) const;
+
+protected:
+    virtual void AddJoiningLobby(ULobbyResult* InLobbyResult);
+    virtual void RemoveJoiningLobby(ULobbyResult* InLobbyResult);
+    virtual void RemoveJoiningLobby(FName LobbyLocalName);
+
+
+public:
+    /**
+     * Creates a LobbyJoinRequest with default options for online games, this can be modified after creation
+     */
+    UFUNCTION(BlueprintCallable, Category = "Lobby")
+    virtual ULobbyJoinRequest* CreateOnlineLobbyJoinRequest();
+
+    /**
+     * Starts process to join an existing lobby, if successful this will connect to the specified server
+     */
+    virtual bool JoinLobby(
+        APlayerController* JoiningPlayer
+        , ULobbyJoinRequest* JoinRequest
+        , FLobbyJoinCompleteDelegate Delegate = FLobbyJoinCompleteDelegate());
+
+protected:
+    void JoinOnlineLobbyInternal(
+        ULocalPlayer* LocalPlayer
+        , ULobbyJoinRequest* JoinRequest
+        , FLobbyJoinCompleteDelegate Delegate = FLobbyJoinCompleteDelegate());
+
+    virtual void HandleJoinOnlineLobbyComplete(
+        const TOnlineResult<FJoinLobby>& JoinResult
+        , FAccountId JoiningAccountId
+        , FLobbyJoinCompleteDelegate Delegate);
+
+    /**
+     * Create a URL for lobby travel to a joined lobby
+     */
+    FString ConstructJoiningLobbyTravelURL(const FAccountId& AccountId, const FLobbyId& LobbyId);
 
 
     //////////////////////////////////////////////////////////////////////
-    // Find Lobby
-#pragma region Find Lobby
-protected:
-    void FindLobbiesInternal(APlayerController* SearchingPlayer, const TSharedRef<FLobbySearchSettings>& InSearchSettings);
-
-#pragma endregion
-
-
-    //////////////////////////////////////////////////////////////////////
-    // Travel Lobby
-#pragma region Travel Lobby
-protected:
-    void InternalTravelToLobby(const FName LobbyName);
-
-    /** 
-     * Called when traveling to a session fails 
+    // Clean Up Lobby
+public:
+    /**
+     * Clean up all active lobbies, called from cases like returning to the main menu
      */
-    //virtual void TravelLocalSessionFailure(UWorld* World, ETravelFailure::Type FailureType, const FString& ReasonString);
+    UFUNCTION(BlueprintCallable, Category = "Lobby")
+    virtual void CleanUpAllLobbies(const APlayerController* InPlayerController = nullptr);
 
-#pragma endregion
+    /**
+     * Clean up specific active lobbys, called from cases like returning to the main menu
+     */
+    UFUNCTION(BlueprintCallable, Category = "Lobby")
+    virtual void CleanUpLobby(FName LocalName, const APlayerController* InPlayerController = nullptr);
 
-
-    //////////////////////////////////////////////////////////////////////
-    // Utilities
 protected:
-    /** 
-     * Get the local user id for a given controller 
-     */
-    FAccountId GetAccountId(APlayerController* PlayerController) const;
-
-    /** 
-     * Get the lobby id for a given lobby name 
-     */
-    FLobbyId GetLobbyId(const FName LobbyName) const;
-    FLobbyId GetLobbyId(const FName& LobbyName, const FAccountId& AccountId) const;
+    virtual void CleanUpOngoingRequest();
 
 };

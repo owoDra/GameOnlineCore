@@ -11,7 +11,7 @@
 
 using namespace UE::Online;
 
-class ULobbySearchRequest;
+class ULobbyResult;
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -61,9 +61,7 @@ enum class ELobbyJoinablePolicy : uint8
 /**
  * Delegates to notifies lobby creation for hosting has completed,
  */
-DECLARE_DELEGATE_OneParam(FLobbyCreateCompleteSingleDelegate, const FOnlineServiceResult&/*Result*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FLobbyCreateCompleteDelegate, const FOnlineServiceResult& /*Result*/);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLobbyCreateCompleteDynamicDelegate, const FOnlineServiceResult&, Result);
+DECLARE_DELEGATE_TwoParams(FLobbyCreateCompleteDelegate, ULobbyCreateRequest* /*Request*/, FOnlineServiceResult /*Result*/);
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -79,6 +77,8 @@ class GCONLINE_API ULobbyCreateRequest : public UObject
 public:
 	ULobbyCreateRequest(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	//////////////////////////////////////////////////////
+	// Create Parameters
 public:
 	//
 	// Online connection mode for newly created lobbies
@@ -176,5 +176,12 @@ public:
 	 * Generate parameters for lobby creation from current settings
 	 */
 	FCreateLobby::Params GenerateCreationParameters() const;
+
+
+	//////////////////////////////////////////////////////
+	// Create Result
+public:
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Lobby")
+	TObjectPtr<ULobbyResult> Result{ nullptr };
 
 };

@@ -2,6 +2,7 @@
 
 #include "OnlineLobbySubsystem.h"
 
+#include "Type/OnlineLobbyResultTypes.h"
 #include "OnlineServiceSubsystem.h"
 #include "GCOnlineLogs.h"
 
@@ -63,21 +64,6 @@ ILobbiesPtr UOnlineLobbySubsystem::GetLobbiesInterface(EOnlineServiceContext Con
 }
 
 
-// Events
-
-void UOnlineLobbySubsystem::NotifyUserLobbyRequest(const FPlatformUserId& PlatformUserId, ULobbySearchResult* RequestedLobby, const FOnlineServiceResult& RequestedLobbyResult)
-{
-	OnUserJoinLobbyRequestEvent.Broadcast(PlatformUserId, RequestedLobby, RequestedLobbyResult);
-	K2_OnUserJoinLobbyRequestEvent.Broadcast(PlatformUserId, RequestedLobby, RequestedLobbyResult);
-}
-
-void UOnlineLobbySubsystem::NotifyJoinLobbyComplete(const FOnlineServiceResult& Result)
-{
-	OnJoinLobbyCompleteEvent.Broadcast(Result);
-	K2_OnJoinLobbyCompleteEvent.Broadcast(Result);
-}
-
-
 // Create Lobby
 
 ULobbyCreateRequest* UOnlineLobbySubsystem::CreateOnlineLobbyCreateRequest()
@@ -88,11 +74,17 @@ ULobbyCreateRequest* UOnlineLobbySubsystem::CreateOnlineLobbyCreateRequest()
 	return NewRequest;
 }
 
-bool UOnlineLobbySubsystem::CreateLobby(APlayerController* HostingPlayer, ULobbyCreateRequest* HostRequest, FLobbyCreateCompleteSingleDelegate Delegate)
+bool UOnlineLobbySubsystem::CreateLobby(APlayerController* HostingPlayer, ULobbyCreateRequest* CreateRequest, FLobbyCreateCompleteDelegate Delegate)
 {
-	if (!HostRequest)
+	if (!CreateRequest)
 	{
 		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Create Lobby failed: passed an invalid request."));
+		return false;
+	}
+
+	if (OngoingCreateRequest)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Warning, TEXT("Create Lobby failed: A request already in progress exists."));
 		return false;
 	}
 
@@ -104,26 +96,28 @@ bool UOnlineLobbySubsystem::CreateLobby(APlayerController* HostingPlayer, ULobby
 	}
 
 	FString OutError;
-	if (!HostRequest->ValidateAndLogErrors(OutError))
+	if (!CreateRequest->ValidateAndLogErrors(OutError))
 	{
 		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Create Lobby failed: %s"), *OutError);
 		return false;
 	}
 
-	CreateOnlineLobbyInternal(LocalPlayer, HostRequest, Delegate);
+	CreateOnlineLobbyInternal(LocalPlayer, CreateRequest, Delegate);
 	return true;
 }
 
-void UOnlineLobbySubsystem::CreateOnlineLobbyInternal(ULocalPlayer* LocalPlayer, ULobbyCreateRequest* HostRequest, FLobbyCreateCompleteSingleDelegate Delegate)
+void UOnlineLobbySubsystem::CreateOnlineLobbyInternal(ULocalPlayer* LocalPlayer, ULobbyCreateRequest* CreateRequest, FLobbyCreateCompleteDelegate Delegate)
 {
-	check(HostRequest);
+	check(CreateRequest);
+	ensure(Delegate.IsBound());
+	ensure(!OngoingCreateRequest);
 
 	auto LobbiesInterface{ GetLobbiesInterface() };
 	check(LobbiesInterface);
 
 	// Make lobby creation parameters
 
-	auto CreateParams{ HostRequest->GenerateCreationParameters() };
+	auto CreateParams{ CreateRequest->GenerateCreationParameters() };
 
 	if (LocalPlayer)
 	{
@@ -136,9 +130,9 @@ void UOnlineLobbySubsystem::CreateOnlineLobbyInternal(ULocalPlayer* LocalPlayer,
 
 	///@ TODO: Add splitscreen players
 
-	// Set Pending Travel URL
+	// Set ongoing request
 
-	SetPendingLobbyTravelURL(HostRequest->ConstructTravelURL());
+	OngoingCreateRequest = CreateRequest;
 
 	// Start Create Lobby
 
@@ -148,8 +142,13 @@ void UOnlineLobbySubsystem::CreateOnlineLobbyInternal(ULocalPlayer* LocalPlayer,
 	Handle.OnComplete(this, &ThisClass::HandleCreateOnlineLobbyComplete, Delegate);
 }
 
-void UOnlineLobbySubsystem::HandleCreateOnlineLobbyComplete(const TOnlineResult<FCreateLobby>& CreateResult, FLobbyCreateCompleteSingleDelegate Delegate)
+void UOnlineLobbySubsystem::HandleCreateOnlineLobbyComplete(const TOnlineResult<FCreateLobby>& CreateResult, FLobbyCreateCompleteDelegate Delegate)
 {
+	if (!ensure(OngoingCreateRequest))
+	{
+		return;
+	}
+
 	const auto bSuccess{ CreateResult.IsOk() };
 	const auto NewLobby{ bSuccess ? CreateResult.GetOkValue().Lobby : nullptr };
 
@@ -160,466 +159,366 @@ void UOnlineLobbySubsystem::HandleCreateOnlineLobbyComplete(const TOnlineResult<
 
 	FOnlineServiceResult ServiceResult;
 
-	if (!bSuccess)
+	if (bSuccess)
+	{
+		auto* NewResult{ NewObject<ULobbyResult>(this) };
+		NewResult->InitializeResult(NewLobby);
+
+		const auto TravelURL{ OngoingCreateRequest->ConstructTravelURL() };
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| URL: %s"), *TravelURL);
+
+		NewResult->SetLobbyTravelURL(TravelURL);
+		AddJoiningLobby(NewResult);
+
+		OngoingCreateRequest->Result = NewResult;
+	}
+	else
 	{
 		ServiceResult = FOnlineServiceResult(CreateResult.GetErrorValue());
 
-		ClearPendingLobbyTravelURL();
+		OngoingCreateRequest->Result = nullptr;
 	}
 
-	Delegate.ExecuteIfBound(ServiceResult);
-	NotifyCreateLobbyComplete(ServiceResult);
-}
+	ensure(Delegate.IsBound());
+	Delegate.ExecuteIfBound(OngoingCreateRequest, ServiceResult);
 
-void UOnlineLobbySubsystem::NotifyCreateLobbyComplete(const FOnlineServiceResult& Result)
-{
-	OnCreateLobbyCompleteEvent.Broadcast(Result);
-	K2_OnCreateLobbyCompleteEvent.Broadcast(Result);
+	OngoingCreateRequest = nullptr;
 }
 
 
+// Search Lobby
 
-
-// Lobby Travel
-
-bool UOnlineLobbySubsystem::StartPendingLobbyTravel()
+ULobbySearchRequest* UOnlineLobbySubsystem::CreateOnlineLobbySearchRequest()
 {
-	if (PendingLobbyTravelURL.IsEmpty())
-	{
-		UE_LOG(LogGameCore_OnlineLobbies, Warning, TEXT("Lobby Travel Failed: No pending travel URL"));
-		return false;
-	}
-
-	return true;
-}
-
-void UOnlineLobbySubsystem::SetPendingLobbyTravelURL(const FString& URL)
-{
-	PendingLobbyTravelURL = URL;
-}
-
-void UOnlineLobbySubsystem::ClearPendingLobbyTravelURL()
-{
-	PendingLobbyTravelURL.Empty();
-}
-
-
-// Lobby
-
-USearchLobbyRequest* UOnlineLobbySubsystem::CreateOnlineSearchLobbyRequest()
-{
-	auto* NewRequest{ NewObject<USearchLobbyRequest>(this) };
-	NewRequest->OnlineMode = ELobbyOnlineMode::Online;
-
+	auto* NewRequest{ NewObject<ULobbySearchRequest>(this) };
 	return NewRequest;
 }
 
-void UOnlineLobbySubsystem::QuickPlayLobby(APlayerController* JoiningOrHostingPlayer, USearchLobbyRequest* SearchRequest, UHostLobbyRequest* HostRequest)
+bool UOnlineLobbySubsystem::SearchLobby(APlayerController* SearchingPlayer, ULobbySearchRequest* SearchRequest, FLobbySearchCompleteDelegate Delegate)
 {
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("QuickPlay Requested"));
-
-	if (!HostRequest || !SearchRequest)
+	if (!SearchRequest)
 	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("QuickPlaySession passed a null request"));
-		return;
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Search Lobby Failed: Invalid Request"));
+		return false;
 	}
 
-	auto HostRequestPtr{ TStrongObjectPtr<UHostLobbyRequest>(HostRequest) };
-	auto JoiningOrHostingPlayerPtr{ TWeakObjectPtr<APlayerController>(JoiningOrHostingPlayer) };
-
-	SearchRequest->OnSearchFinished.AddUObject(this, &ThisClass::HandleQuickPlaySearchFinished, JoiningOrHostingPlayerPtr, HostRequestPtr);
-
-	FindLobbiesInternal(JoiningOrHostingPlayer, MakeShared<FLobbySearchSettings>(SearchRequest));
-}
-
-void UOnlineLobbySubsystem::JoinLobby(APlayerController* JoiningPlayer, USearchLobbyResult* SearchResult)
-{
-	if (SearchResult == nullptr)
+	if (OngoingSearchRequest)
 	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("JoinLobby passed a null request"));
-		return;
+		UE_LOG(LogGameCore_OnlineLobbies, Warning, TEXT("Search Lobby failed: A request already in progress exists."));
+		return false;
 	}
 
-	auto* LocalPlayer{ JoiningPlayer ? JoiningPlayer->GetLocalPlayer() : nullptr };
+	auto* LocalPlayer{ SearchingPlayer ? SearchingPlayer->GetLocalPlayer() : nullptr };
 	if (!LocalPlayer)
 	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Joining Player is invalid"));
-		return;
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Search Lobby Failed: HostingPlayer is invalid."));
+		return false;
 	}
 
-	JoinSessionInternal(LocalPlayer, SearchResult);
+	SearchOnlineLobbyInternal(LocalPlayer, SearchRequest, Delegate);
+	return true;
 }
 
-void UOnlineLobbySubsystem::FindLobbies(APlayerController* SearchingPlayer, USearchLobbyRequest* SearchRequest)
+void UOnlineLobbySubsystem::SearchOnlineLobbyInternal(ULocalPlayer* LocalPlayer, ULobbySearchRequest* SearchRequest, FLobbySearchCompleteDelegate Delegate)
 {
-	if (SearchRequest == nullptr)
-	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("FindLobbies passed a null request"));
-		return;
-	}
+	check(LocalPlayer);
+	check(SearchRequest);
+	ensure(Delegate.IsBound());
+	ensure(!OngoingSearchRequest);
 
-	FindLobbiesInternal(SearchingPlayer, MakeShared<FLobbySearchSettings>(SearchRequest));
-}
-
-void UOnlineLobbySubsystem::CleanUpLobbies()
-{
-	bWantToDestroyPendingLobby = true;
-
-	auto LobbiesInterface{ GetOnlineLobbies() };
+	auto LobbiesInterface{ GetLobbiesInterface() };
 	check(LobbiesInterface);
 
-	auto LocalPlayerId{ GetAccountId(GetGameInstance()->GetFirstLocalPlayerController()) };
-	auto LobbyId{ GetLobbyId(NAME_GameSession, LocalPlayerId) };
+	// Set Ongoing request
 
-	if (!LocalPlayerId.IsValid() || !LobbyId.IsValid())
+	OngoingSearchRequest = SearchRequest;
+
+	// Make lobby search parameters
+
+	auto FindLobbyParams{ SearchRequest->GenerateFindParameters() };
+	FindLobbyParams.LocalAccountId = LocalPlayer->GetPreferredUniqueNetId().GetV2();
+
+	// Start lobby search
+
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Start Search Lobbies"));
+
+	auto Handle{ LobbiesInterface->FindLobbies(MoveTemp(FindLobbyParams)) };
+	Handle.OnComplete(this, &ThisClass::HandleSearchOnlineLobbyComplete, Delegate);
+}
+
+void UOnlineLobbySubsystem::HandleSearchOnlineLobbyComplete(const TOnlineResult<FFindLobbies>& SearchResult, FLobbySearchCompleteDelegate Delegate)
+{
+	if (!ensure(OngoingSearchRequest))
 	{
 		return;
 	}
+
+	const auto bSuccess{ SearchResult.IsOk() };
+	const auto NewLobbies{ bSuccess ? SearchResult.GetOkValue().Lobbies : TArray<TSharedRef<const FLobby>>() };
 	
-	LobbiesInterface->LeaveLobby({ LocalPlayerId, LobbyId });
-}
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Search Lobby Completed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *SearchResult.GetErrorValue().GetLogString());
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| NumLobbies: %d"), NewLobbies.Num());
 
+	FOnlineServiceResult ServiceResult;
 
-// Create Lobby
-
-void UOnlineLobbySubsystem::CreateOnlineLobbyInternal(ULocalPlayer* LocalPlayer, UHostLobbyRequest* HostRequest)
-{
-	CreateLobbyResult = FOnlineResultInformation();
-	PendingTravelURL = HostRequest->ConstructTravelURL();
-
-	const auto LobbyName{ NAME_GameSession };
-	const auto MaxPlayers{ HostRequest->GetMaxPlayers() };
-
-	auto LobbirsInterface{ GetOnlineLobbies() };
-	check(LobbirsInterface);
-
-	FCreateLobby::Params CreateParams;
-
-	if (LocalPlayer)
+	if (bSuccess)
 	{
-		CreateParams.LocalAccountId = LocalPlayer->GetPreferredUniqueNetId().GetV2();
-	}
-	else if (bIsDedicatedServer)
-	{
-		/// @TODO what should this do for v2?
-	}
-
-	CreateParams.LocalName			= LobbyName;
-	CreateParams.SchemaId			= FSchemaId(TEXT("GameLobby"));
-	CreateParams.bPresenceEnabled	= true;
-	CreateParams.MaxMembers			= MaxPlayers;
-	CreateParams.JoinPolicy			= ELobbyJoinPolicy::PublicAdvertised;
-
-	/// @TODO attribute support 
-
-	//CreateParams.Attributes.Emplace(SETTING_GAMEMODE, HostRequest->ModeNameForAdvertisement);
-	//CreateParams.Attributes.Emplace(SETTING_MAPNAME, HostRequest->GetMapName());
-	//CreateParams.Attributes.Emplace(SETTING_MATCHING_TIMEOUT, 120.0f);
-	//CreateParams.Attributes.Emplace(SETTING_SESSION_TEMPLATE_NAME, FString(TEXT("GameSession")));
-
-	CreateParams.Attributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE1")), true);
-	CreateParams.Attributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE2")), HostRequest->ModeNameForAdvertisement);
-	CreateParams.Attributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE3")), HostRequest->GetMapName());
-	CreateParams.Attributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE4")), 120.0f);
-	CreateParams.Attributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE5")), FString(TEXT("GameSession")));
-
-	// Add presence setting so it can be searched for
-
-	//CreateParams.Attributes.Emplace(SEARCH_PRESENCE, true);
-
-	//CreateParams.UserAttributes.Emplace(SETTING_GAMEMODE, FString(TEXT("GameSession")));
-
-	//CreateParams.UserAttributes.Emplace(FName(TEXT("LOBBYSERVICEATTRIBUTE2")), FString(TEXT("GameSession")));
-
-	///@ TODO: Add splitscreen players
-
-	LobbirsInterface->CreateLobby(MoveTemp(CreateParams)).OnComplete(this, 
-		[this, LobbyName](const TOnlineResult<FCreateLobby>& CreateResult)
+		for (const auto& Lobby : NewLobbies)
 		{
-			OnCreateLobbyComplete(LobbyName, CreateResult.IsOk());
-		}
-	);
-}
+			UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| +Lobby: %s"), *ToLogString(Lobby->LobbyId));
 
-void UOnlineLobbySubsystem::OnCreateLobbyComplete(FName LobbyName, bool bWasSuccessful)
-{
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("OnCreateLobbyComplete(LobbyName: %s, bWasSuccessful: %d)"), *LobbyName.ToString(), bWasSuccessful);
+			auto* NewResult{ NewObject<ULobbyResult>(this) };
+			NewResult->InitializeResult(Lobby);
 
-	FinishLobbyCreation(bWasSuccessful);
-}
-
-void UOnlineLobbySubsystem::FinishLobbyCreation(bool bWasSuccessful)
-{
-	if (bWasSuccessful)
-	{
-		CreateLobbyResult = FOnlineResultInformation();
-		CreateLobbyResult.bWasSuccessful = true;
-
-		NotifyCreateLobbyComplete(CreateLobbyResult);
-
-		// Travel to the specified match URL
-
-		GetWorld()->ServerTravel(PendingTravelURL);
-	}
-	else
-	{
-		if (CreateLobbyResult.bWasSuccessful || CreateLobbyResult.ErrorText.IsEmpty())
-		{
-			FString ReturnError = TEXT("GenericFailure"); /// @TODO: No good way to get session error codes out of OSSV1
-			FText ReturnReason = NSLOCTEXT("GameOnlineCore", "CreateSessionFailed", "Failed to create session.");
-
-			CreateLobbyResult.bWasSuccessful = false;
-			CreateLobbyResult.ErrorId = ReturnError;
-			CreateLobbyResult.ErrorText = ReturnReason;
-		}
-
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("FinishLobbyCreation(%s): %s"), *CreateLobbyResult.ErrorId, *CreateLobbyResult.ErrorText.ToString());
-
-		NotifyCreateLobbyComplete(CreateLobbyResult);
-	}
-}
-
-void UOnlineLobbySubsystem::SetCreateLobbyError(const FText& ErrorText)
-{
-	CreateLobbyResult.bWasSuccessful = false;
-	CreateLobbyResult.ErrorId = TEXT("InternalFailure");
-	CreateLobbyResult.ErrorText = ErrorText;
-}
-
-
-// Quick Play Lobby
-
-void UOnlineLobbySubsystem::HandleQuickPlaySearchFinished(bool bSucceeded, const FText& ErrorMessage, TWeakObjectPtr<APlayerController> JoiningOrHostingPlayer, TStrongObjectPtr<UHostLobbyRequest> HostRequest)
-{
-	const auto ResultCount{ SearchSettings->SearchRequest->Results.Num() };
-
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("QuickPlay Search Finished %s (Results %d) (Error: %s)"), bSucceeded ? TEXT("Success") : TEXT("Failed"), ResultCount, *ErrorMessage.ToString());
-
-	/// @TODO: We have to check if the error message is empty because some OSS layers report a failure just because there are no sessions.  Please fix with OSS 2.0.
-	
-	if (bSucceeded || ErrorMessage.IsEmpty())
-	{
-		// Join the best search result.
-
-		if (ResultCount > 0)
-		{
-			/// @TODO: We should probably look at ping?  maybe some other factors to find the best.  Idk if they come pre-sorted or not.
-
-			for (auto Result : SearchSettings->SearchRequest->Results)
-			{
-				JoinLobby(JoiningOrHostingPlayer.Get(), Result);
-				return;
-			}
-		}
-		else
-		{
-			HostLobby(JoiningOrHostingPlayer.Get(), HostRequest.Get());
+			OngoingSearchRequest->Results.Emplace(NewResult);
 		}
 	}
 	else
 	{
-		/// @TODO: This sucks, need to tell someone.
+		OngoingSearchRequest->Results.Reset();
+
+		ServiceResult = FOnlineServiceResult(SearchResult.GetErrorValue());
 	}
+
+	ensure(Delegate.IsBound());
+	Delegate.ExecuteIfBound(OngoingSearchRequest, ServiceResult);
+
+	OngoingSearchRequest = nullptr;
 }
 
 
 // Join Lobby
 
-void UOnlineLobbySubsystem::JoinSessionInternal(ULocalPlayer* LocalPlayer, USearchLobbyResult* Request)
+const ULobbyResult* UOnlineLobbySubsystem::GetJoinedLobby(FName LocalName) const
 {
-	const auto SessionName{ NAME_GameSession };
+	return JoiningLobbies.FindRef(LocalName);
+}
 
-	auto LobbiesInterface{ GetOnlineLobbies() };
+void UOnlineLobbySubsystem::AddJoiningLobby(ULobbyResult* InLobbyResult)
+{
+	check(InLobbyResult);
+
+	const auto& LocalName{ InLobbyResult->GetLocalName() };
+	ensure(JoiningLobbies.Contains(LocalName));
+
+	JoiningLobbies.Emplace(LocalName, InLobbyResult);
+}
+
+void UOnlineLobbySubsystem::RemoveJoiningLobby(ULobbyResult* InLobbyResult)
+{
+	if (ensure(InLobbyResult))
+	{
+		RemoveJoiningLobby(InLobbyResult->GetLocalName());
+	}
+}
+
+void UOnlineLobbySubsystem::RemoveJoiningLobby(FName LobbyLocalName)
+{
+	JoiningLobbies.Remove(LobbyLocalName);
+}
+
+
+ULobbyJoinRequest* UOnlineLobbySubsystem::CreateOnlineLobbyJoinRequest()
+{
+	auto* NewRequest{ NewObject<ULobbyJoinRequest>(this) };
+	return NewRequest;
+}
+
+bool UOnlineLobbySubsystem::JoinLobby(APlayerController* JoiningPlayer, ULobbyJoinRequest* JoinRequest, FLobbyJoinCompleteDelegate Delegate)
+{
+	if (!JoinRequest)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby Failed: Invalid Join Request"));
+		return false;
+	}
+
+	auto LobbyToJoin{ JoinRequest->LobbyToJoin };
+	if (!LobbyToJoin)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby Failed: Invalid Lobby Result"));
+		return false;
+	}
+
+	auto Lobby{ LobbyToJoin->GetLobby() };
+	if (!Lobby)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Invalid Lobby"));
+		return false;
+	}
+
+	if (JoiningLobbies.Contains(Lobby->LocalName))
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Already Joined (LocalName: %s)"), *Lobby->LocalName.ToString());
+		return false;
+	}
+
+	auto* LocalPlayer{ JoiningPlayer ? JoiningPlayer->GetLocalPlayer() : nullptr };
+	if (!LocalPlayer)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby Failed: JoiningPlayer is invalid."));
+		return false;
+	}
+
+	JoinOnlineLobbyInternal(LocalPlayer, JoinRequest, Delegate);
+	return true;
+}
+
+void UOnlineLobbySubsystem::JoinOnlineLobbyInternal(ULocalPlayer* LocalPlayer, ULobbyJoinRequest* JoinRequest, FLobbyJoinCompleteDelegate Delegate)
+{
+	check(LocalPlayer);
+	check(JoinRequest);
+	ensure(Delegate.IsBound());
+	ensure(!OngoingJoinRequest);
+
+	auto LobbiesInterface{ GetLobbiesInterface() };
 	check(LobbiesInterface);
 
-	FJoinLobby::Params JoinParams;
+	// Set Ongoing request
+
+	OngoingJoinRequest = JoinRequest;
+
+	// Make lobby search parameters
+
+	auto JoinParams{ JoinRequest->GenerateJoinParameters() };
 	JoinParams.LocalAccountId = LocalPlayer->GetPreferredUniqueNetId().GetV2();
-	JoinParams.LocalName = SessionName;
-	JoinParams.LobbyId = Request->Lobby->LobbyId;
-	JoinParams.bPresenceEnabled = true;
 
-	// Add any splitscreen players if they exist 
-	/// @TODO: See UCommonSessionSubsystem::OnJoinSessionComplete
+	// Start lobby search
 
-	LobbiesInterface->JoinLobby(MoveTemp(JoinParams)).OnComplete(this, 
-		[this, SessionName](const TOnlineResult<FJoinLobby>& JoinResult)
-		{
-			if (JoinResult.IsOk())
-			{
-				InternalTravelToLobby(SessionName);
-			}
-			else
-			{
-				/// @TODO: Error handling
-				UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("JoinLobby Failed with Result: %s"), *ToLogString(JoinResult.GetErrorValue()));
-			}
-		}
-	);
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Start Join Lobby"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LocalName: %s"), *JoinParams.LocalName.ToString());
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| AccountId: %s"), *ToLogString(JoinParams.LocalAccountId));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(JoinParams.LobbyId));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Presence: %s"), JoinParams.bPresenceEnabled ? TEXT("ENABLED") : TEXT("DISABLED"));
+
+	auto Handle{ LobbiesInterface->JoinLobby(MoveTemp(JoinParams)) };
+	Handle.OnComplete(this, &ThisClass::HandleJoinOnlineLobbyComplete, JoinParams.LocalAccountId, Delegate);
 }
 
-
-// Find Lobby
-
-void UOnlineLobbySubsystem::FindLobbiesInternal(APlayerController* SearchingPlayer, const TSharedRef<FLobbySearchSettings>& InSearchSettings)
+void UOnlineLobbySubsystem::HandleJoinOnlineLobbyComplete(const TOnlineResult<FJoinLobby>& JoinResult, FAccountId JoiningAccountId, FLobbyJoinCompleteDelegate Delegate)
 {
-	if (SearchSettings.IsValid())
+	if (!ensure(OngoingJoinRequest) || !ensure(JoiningAccountId.IsValid()))
 	{
-		//@TODO: This is a poor user experience for the API user, we should let the additional search piggyback and
-		// just give it the same results as the currently pending one
-		// (or enqueue the request and service it when the previous one finishes or fails)
-
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("A previous FindLobbies call is still in progress, aborting"));
-		SearchSettings->SearchRequest->NotifySearchFinished(false, NSLOCTEXT("GameOnlineCore", "Error_FindLobbiesAlreadyInProgress", "Lobbies search already in progress"));
-	}
-
-	auto* LocalPlayer{ SearchingPlayer ? SearchingPlayer->GetLocalPlayer() : nullptr };
-	if (LocalPlayer == nullptr)
-	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("SearchingPlayer is invalid"));
-		InSearchSettings->SearchRequest->NotifySearchFinished(false, NSLOCTEXT("GameOnlineCore", "Error_FindLobbiesBadPlayer", "Lobbies search was not provided a local player"));
 		return;
 	}
 
-	SearchSettings = InSearchSettings;
+	const auto bSuccess{ JoinResult.IsOk() };
+	const auto NewLobby{ bSuccess ? JoinResult.GetOkValue().Lobby : nullptr };
+	
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Join Lobby Completed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *JoinResult.GetErrorValue().GetLogString());
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(NewLobby ? NewLobby->LobbyId : FLobbyId()));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| OwnerId: %s"), *ToLogString(NewLobby ? NewLobby->OwnerAccountId : FAccountId()));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| MyId: %s"), *ToLogString(JoiningAccountId));
 
-	auto LobbiesInterface{ GetOnlineLobbies() };
-	check(LobbiesInterface);
+	FOnlineServiceResult ServiceResult;
 
-	auto FindLobbyParams{ InSearchSettings->FindLobbyParams };
-	FindLobbyParams.LocalAccountId = LocalPlayer->GetPreferredUniqueNetId().GetV2();
-
-	LobbiesInterface->FindLobbies(MoveTemp(FindLobbyParams)).OnComplete(this, 
-		[this, LocalSearchSettings = SearchSettings](const TOnlineResult<FFindLobbies>& FindResult)
+	if (bSuccess)
+	{
+		if (!ensure(OngoingJoinRequest->LobbyToJoin))
 		{
-			// This was an abandoned search, ignore
-
-			if (LocalSearchSettings != SearchSettings)
-			{
-				return;
-			}
-
-			const auto bWasSuccessful{ FindResult.IsOk() };
-			UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("FindLobbies(bWasSuccessful: %s)"), *LexToString(bWasSuccessful));
-			check(SearchSettings.IsValid());
-			if (bWasSuccessful)
-			{
-				const auto& FindResults{ FindResult.GetOkValue() };
-				SearchSettings->SearchRequest->Results.Reset(FindResults.Lobbies.Num());
-
-				for (const auto& Lobby : FindResults.Lobbies)
-				{
-					if (!Lobby->OwnerAccountId.IsValid())
-					{
-						UE_LOG(LogGameCore_OnlineLobbies, Verbose, TEXT("\tIgnoring Lobby with no owner (LobbyId: %s)"), *ToLogString(Lobby->LobbyId));
-					}
-					else if (Lobby->Members.Num() == 0)
-					{
-						UE_LOG(LogGameCore_OnlineLobbies, Verbose, TEXT("\tIgnoring Lobby with no members (UserId: %s)"), *ToLogString(Lobby->OwnerAccountId));
-					}
-					else
-					{
-						auto* Entry{ NewObject<USearchLobbyResult>(SearchSettings->SearchRequest) };
-						Entry->Lobby = Lobby;
-						SearchSettings->SearchRequest->Results.Add(Entry);
-
-						UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("\tFound lobby (UserId: %s, NumOpenConns: %d)"), *ToLogString(Lobby->OwnerAccountId), Lobby->MaxMembers - Lobby->Members.Num());
-					}
-				}
-			}
-			else
-			{
-				SearchSettings->SearchRequest->Results.Empty();
-			}
-
-			const auto ResultText{ bWasSuccessful ? FText() : FindResult.GetErrorValue().GetText() };
-
-			SearchSettings->SearchRequest->NotifySearchFinished(bWasSuccessful, ResultText);
-			SearchSettings.Reset();
+			OngoingJoinRequest->LobbyToJoin = NewObject<ULobbyResult>(this);
 		}
-	);
+		OngoingJoinRequest->LobbyToJoin->InitializeResult(NewLobby);
+
+		const auto TravelURL{ ConstructJoiningLobbyTravelURL(JoiningAccountId, NewLobby->LobbyId) };
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| URL: %s"), *TravelURL);
+
+		OngoingJoinRequest->LobbyToJoin->SetLobbyTravelURL(TravelURL);
+
+		AddJoiningLobby(OngoingJoinRequest->LobbyToJoin);
+	}
+	else
+	{
+		ServiceResult = FOnlineServiceResult(JoinResult.GetErrorValue());
+	}
+
+	ensure(Delegate.IsBound());
+	Delegate.ExecuteIfBound(OngoingJoinRequest, ServiceResult);
+
+	OngoingJoinRequest = nullptr;
 }
 
-
-// Travel Lobby
-
-void UOnlineLobbySubsystem::InternalTravelToLobby(const FName LobbyName)
+FString UOnlineLobbySubsystem::ConstructJoiningLobbyTravelURL(const FAccountId& AccountId, const FLobbyId& LobbyId)
 {
-	/// @TODO: Ideally we'd use triggering player instead of first (they're all gonna go at once so it probably doesn't matter)
+	check(AccountId.IsValid());
+	check(LobbyId.IsValid());
 
-	auto* const PlayerController{ GetGameInstance()->GetFirstLocalPlayerController() };
-	if (!PlayerController)
-	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("InternalTravelToSession(Failed due to Invalid Player Controller)"));
-		return;
-	}
+	auto OnlineServices{ OnlineServiceSubsystem ? OnlineServiceSubsystem->GetContextCache() : nullptr };
+	check(OnlineServices);
 
 	FString URL;
 
-	auto OnlineServices{ GetOnlineService() };
-	check(OnlineServices);
-
-	auto LocalUserId{ GetAccountId(PlayerController) };
-	if (LocalUserId.IsValid())
+	auto Result{ OnlineServices->GetResolvedConnectString({ AccountId, LobbyId }) };
+	if (ensure(Result.IsOk()))
 	{
-		auto Result{ OnlineServices->GetResolvedConnectString({ LocalUserId, GetLobbyId(LobbyName) }) };
-
-		if (ensure(Result.IsOk()))
-		{
-			URL = Result.GetOkValue().ResolvedConnectString;
-		}
+		URL = Result.GetOkValue().ResolvedConnectString;
 	}
 
-	// Allow modification of the URL prior to travel
-
-	OnPreClientTravelEvent.Broadcast(URL);
-
-	PlayerController->ClientTravel(URL, TRAVEL_Absolute);
+	return URL;
 }
 
 
-// Utilities
+// Clean Up Lobby
 
-FAccountId UOnlineLobbySubsystem::GetAccountId(APlayerController* PlayerController) const
+void UOnlineLobbySubsystem::CleanUpAllLobbies(const APlayerController* InPlayerController)
 {
-	if (const auto* LocalPlayer{ PlayerController->GetLocalPlayer() })
-	{
-		auto LocalPlayerIdRepl{ LocalPlayer->GetPreferredUniqueNetId() };
+	auto LobbiesInterface{ GetLobbiesInterface() };
+	check(LobbiesInterface);
 
-		if (LocalPlayerIdRepl.IsValid())
-		{
-			return LocalPlayerIdRepl.GetV2();
-		}
+	CleanUpOngoingRequest();
+
+	auto* PlayerController{ InPlayerController ? InPlayerController : GetGameInstance()->GetFirstLocalPlayerController() };
+	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
+	auto LocalAccountId{ LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId().GetV2() : FAccountId() };
+
+	if (!LocalAccountId.IsValid())
+	{
+		return;
 	}
 
-	return FAccountId();
-}
-
-FLobbyId UOnlineLobbySubsystem::GetLobbyId(const FName LobbyName) const
-{
-	auto LocalUserId{ GetAccountId(GetGameInstance()->GetFirstLocalPlayerController()) };
-
-	return GetLobbyId(LobbyName, LocalUserId);
-}
-
-FLobbyId UOnlineLobbySubsystem::GetLobbyId(const FName& LobbyName, const FAccountId& AccountId) const
-{
-	if (AccountId.IsValid())
+	for (auto It{ JoiningLobbies.CreateIterator() }; It; ++It)
 	{
-		auto LobbiesInterface{ GetOnlineLobbies() };
-		check(LobbiesInterface);
+		auto Lobby{ It->Value ? It->Value->GetLobby() : nullptr };
+		auto LobbyId{ Lobby ? Lobby->LobbyId : FLobbyId() };
 
-		auto JoinedLobbies{ LobbiesInterface->GetJoinedLobbies({ AccountId }) };
-		if (JoinedLobbies.IsOk())
+		if (LobbyId.IsValid())
 		{
-			for (const auto& Lobby : JoinedLobbies.GetOkValue().Lobbies)
-			{
-				if (Lobby->LocalName == LobbyName)
-				{
-					return Lobby->LobbyId;
-				}
-			}
+			LobbiesInterface->LeaveLobby({ LocalAccountId, LobbyId });
 		}
+
+		It.RemoveCurrent();
+	}
+}
+
+void UOnlineLobbySubsystem::CleanUpLobby(FName LocalName, const APlayerController* InPlayerController)
+{
+	auto LobbiesInterface{ GetLobbiesInterface() };
+	check(LobbiesInterface);
+
+	CleanUpOngoingRequest();
+
+	auto* PlayerController{ InPlayerController ? InPlayerController : GetGameInstance()->GetFirstLocalPlayerController() };
+	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
+	auto LocalAccountId{ LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId().GetV2() : FAccountId() };
+
+	const auto* LobbyResult{ GetJoinedLobby(LocalName) };
+	auto Lobby{ LobbyResult ? LobbyResult->GetLobby() : nullptr };
+	auto LobbyId{ Lobby ? Lobby->LobbyId : FLobbyId() };
+
+	if (LocalAccountId.IsValid() && LobbyId.IsValid())
+	{
+		LobbiesInterface->LeaveLobby({ LocalAccountId, LobbyId });
 	}
 
-	return FLobbyId();
+	RemoveJoiningLobby(LocalName);
+}
+
+void UOnlineLobbySubsystem::CleanUpOngoingRequest()
+{
+	OngoingCreateRequest = nullptr;
+	OngoingJoinRequest = nullptr;
+	OngoingSearchRequest = nullptr;
 }
