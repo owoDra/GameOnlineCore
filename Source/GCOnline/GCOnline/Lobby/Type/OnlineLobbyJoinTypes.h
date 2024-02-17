@@ -19,19 +19,19 @@ class ULobbyJoinRequest;
  */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FUserJoinLobbyRequestDelegate
 										, const FPlatformUserId&			/*LocalPlatformUserId*/
-										, ULobbyResult*						/*RequestedSession*/
-										, FOnlineServiceResult				/*RequestedSessionResult*/);
+										, ULobbyResult*						/*RequestedLobby*/
+										, FOnlineServiceResult				/*Result*/);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FUserJoinLobbyRequestDynamicDelegate
 										, const FPlatformUserId&			, LocalPlatformUserId
-										, ULobbyResult*						, RequestedSession
-										, FOnlineServiceResult				, RequestedSessionResult);
+										, ULobbyResult*						, RequestedLobby
+										, FOnlineServiceResult				, Result);
 
 
 /**
  * Delegate to notifies lobby join has completed
  */
-DECLARE_DELEGATE_TwoParams(FLobbyJoinCompleteDelegate, ULobbyJoinRequest* /*Lobby*/, const FOnlineServiceResult& /*Result*/);
+DECLARE_DELEGATE_TwoParams(FLobbyJoinCompleteDelegate, ULobbyJoinRequest* /*Lobby*/, FOnlineServiceResult /*Result*/);
 
 
 /**

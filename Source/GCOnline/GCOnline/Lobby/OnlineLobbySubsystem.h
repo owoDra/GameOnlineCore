@@ -33,6 +33,23 @@ class ULobbyResult;
 ///////////////////////////////////////////////////
 
 /**
+ * Event triggered when the local user has requested to join a lobby from an external source, for example from a platform overlay.
+ * Generally, the game should transition the player into the lobby.
+ */
+DECLARE_MULTICAST_DELEGATE_FourParams(FLobbyMemberChangedDelegate
+    , FName					/* LocalName */
+    , const ULobbyResult*	/* Lobby */
+    , int32					/* CurrentMembers */
+    , int32					/* MaxMembers */);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FLobbyMemberChangedDynamicDelegate
+    , FName, LocalName
+    , const ULobbyResult*, Lobby
+    , int32, CurrentMembers
+    , int32, MaxMembers);
+
+
+/**
  * Subsystem with features to extend the functionality of Online Servicies (OSSv2) and make it easier to use in projects
  * This subsystem handles the functionality to create and participate in online play matches, standby, and party lobbies.
  * 
@@ -54,6 +71,8 @@ protected:
     //
     bool bIsDedicatedServer{ false };
 
+    TArray<FOnlineEventDelegateHandle> LobbyDelegateHandles;
+
     UPROPERTY(Transient)
     TObjectPtr<UOnlineServiceSubsystem> OnlineServiceSubsystem{ nullptr };
 
@@ -70,6 +89,14 @@ protected:
      * Returns lobbies interface of specific type, will return null if there is no type
      */
     ILobbiesPtr GetLobbiesInterface(EOnlineServiceContext Context = EOnlineServiceContext::Default) const;
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Lobby Events
+protected:
+    void HandleUserJoinLobbyRequest(const FUILobbyJoinRequested& EventParams);
+    void HandleLobbyMemberJoined(const FLobbyMemberJoined& EventParams);
+    void HandleLobbyMemberLeft(const FLobbyMemberLeft& EventParams);
 
 
     //////////////////////////////////////////////////////////////////////
@@ -169,7 +196,7 @@ public:
      * Creates a LobbyJoinRequest with default options for online games, this can be modified after creation
      */
     UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual ULobbyJoinRequest* CreateOnlineLobbyJoinRequest();
+    virtual ULobbyJoinRequest* CreateOnlineLobbyJoinRequest(ULobbyResult* LobbyResult);
 
     /**
      * Starts process to join an existing lobby, if successful this will connect to the specified server
@@ -213,5 +240,30 @@ public:
 
 protected:
     virtual void CleanUpOngoingRequest();
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Join Lobby Request
+public:
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On User Join Lobby Request"))
+    FUserJoinLobbyRequestDynamicDelegate K2_OnUserJoinLobbyRequest;
+    FUserJoinLobbyRequestDelegate OnUserJoinLobbyRequest;
+
+protected:
+    void NotifyUserJoinLobbyRequest(
+        const FPlatformUserId& LocalPlatformUserId
+        , ULobbyResult* RequestedLobby
+        , FOnlineServiceResult Result);
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Lobby Member Change
+public:
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On Lobby Member Changed"))
+    FLobbyMemberChangedDynamicDelegate K2_OnLobbyMemberChanged;
+    FLobbyMemberChangedDelegate OnLobbyMemberChanged;
+
+protected:
+    void NotifyLobbyMemberChanged(FName LocalName, const ULobbyResult* Lobby, int32 CurrentMembers, int32 MaxMembers);
 
 };

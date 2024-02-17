@@ -45,10 +45,25 @@ bool UOnlineLobbySubsystem::ShouldCreateSubsystem(UObject* Outer) const
 
 void UOnlineLobbySubsystem::BindLobbiesDelegates()
 {
+	auto LobbiesInterface{ GetLobbiesInterface() };
+	check(LobbiesInterface);
+
+	LobbyDelegateHandles.Emplace(LobbiesInterface->OnUILobbyJoinRequested().Add(this, &ThisClass::HandleUserJoinLobbyRequest));
+	LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberJoined().Add(this, &ThisClass::HandleLobbyMemberJoined));
+	LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberLeft().Add(this, &ThisClass::HandleLobbyMemberLeft));
+
+	/// @TODO Support Leader change and host migration
+	// LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyLeaderChanged().Add(this, &ThisClass::HandleLobbyMemberLeft));
 }
 
 void UOnlineLobbySubsystem::UnbindLobbiesDelegates()
 {
+	for (auto& Handle : LobbyDelegateHandles)
+	{
+		Handle.Unbind();
+	}
+
+	LobbyDelegateHandles.Reset();
 }
 
 ILobbiesPtr UOnlineLobbySubsystem::GetLobbiesInterface(EOnlineServiceContext Context) const
@@ -61,6 +76,75 @@ ILobbiesPtr UOnlineLobbySubsystem::GetLobbiesInterface(EOnlineServiceContext Con
 	}
 
 	return nullptr;
+}
+
+
+// Lobby Events
+
+void UOnlineLobbySubsystem::HandleUserJoinLobbyRequest(const FUILobbyJoinRequested& EventParams)
+{
+	check(OnlineServiceSubsystem);
+
+	auto OnlineService{ OnlineServiceSubsystem->GetContextCache() };
+	check(OnlineService);
+
+	auto AuthInterface{ OnlineService->GetAuthInterface() };
+	check(AuthInterface);
+
+	auto Account{ AuthInterface->GetLocalOnlineUserByOnlineAccountId({ EventParams.LocalAccountId }) };
+	if (Account.IsOk())
+	{
+		auto PlatformUserId{ Account.GetOkValue().AccountInfo->PlatformUserId };
+
+		FOnlineServiceResult ServiceResult;
+		ULobbyResult* RequestedLobbyResult{ nullptr };
+
+		if (EventParams.Result.IsOk())
+		{
+			RequestedLobbyResult = NewObject<ULobbyResult>(this);
+			RequestedLobbyResult->InitializeResult(EventParams.Result.GetOkValue());
+		}
+		else
+		{
+			ServiceResult = FOnlineServiceResult(EventParams.Result.GetErrorValue());
+		}
+
+		NotifyUserJoinLobbyRequest(PlatformUserId, RequestedLobbyResult, ServiceResult);
+	}
+	else
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("HandleUserJoinLobbyRequest: Failed to get account by local user id (%s)"), *UE::Online::ToLogString(EventParams.LocalAccountId));
+	}
+}
+
+void UOnlineLobbySubsystem::HandleLobbyMemberJoined(const FLobbyMemberJoined& EventParams)
+{
+	const auto LocalName{ EventParams.Lobby->LocalName };
+	const auto CurrentMembers{ EventParams.Lobby->Members.Num() };
+	const auto MaxMembers{ EventParams.Lobby->MaxMembers };
+
+	const auto* LobbyResult{ GetJoinedLobby(LocalName) };
+	if (!ensure(LobbyResult))
+	{
+		return;
+	}
+
+	NotifyLobbyMemberChanged(LocalName, LobbyResult, CurrentMembers, MaxMembers);
+}
+
+void UOnlineLobbySubsystem::HandleLobbyMemberLeft(const FLobbyMemberLeft& EventParams)
+{
+	const auto LocalName{ EventParams.Lobby->LocalName };
+	const auto CurrentMembers{ EventParams.Lobby->Members.Num() };
+	const auto MaxMembers{ EventParams.Lobby->MaxMembers };
+
+	const auto* LobbyResult{ GetJoinedLobby(LocalName) };
+	if (!ensure(LobbyResult))
+	{
+		return;
+	}
+
+	NotifyLobbyMemberChanged(LocalName, LobbyResult, CurrentMembers, MaxMembers);
 }
 
 
@@ -320,9 +404,10 @@ void UOnlineLobbySubsystem::RemoveJoiningLobby(FName LobbyLocalName)
 }
 
 
-ULobbyJoinRequest* UOnlineLobbySubsystem::CreateOnlineLobbyJoinRequest()
+ULobbyJoinRequest* UOnlineLobbySubsystem::CreateOnlineLobbyJoinRequest(ULobbyResult* LobbyResult)
 {
 	auto* NewRequest{ NewObject<ULobbyJoinRequest>(this) };
+	NewRequest->LobbyToJoin = LobbyResult;
 	return NewRequest;
 }
 
@@ -521,4 +606,22 @@ void UOnlineLobbySubsystem::CleanUpOngoingRequest()
 	OngoingCreateRequest = nullptr;
 	OngoingJoinRequest = nullptr;
 	OngoingSearchRequest = nullptr;
+}
+
+
+// Join Lobby Request
+
+void UOnlineLobbySubsystem::NotifyUserJoinLobbyRequest(const FPlatformUserId& LocalPlatformUserId, ULobbyResult* RequestedLobby, FOnlineServiceResult Result)
+{
+	OnUserJoinLobbyRequest.Broadcast(LocalPlatformUserId, RequestedLobby, Result);
+	K2_OnUserJoinLobbyRequest.Broadcast(LocalPlatformUserId, RequestedLobby, Result);
+}
+
+
+// Lobby Member Change
+
+void UOnlineLobbySubsystem::NotifyLobbyMemberChanged(FName LocalName, const ULobbyResult* Lobby, int32 CurrentMembers, int32 MaxMembers)
+{
+	OnLobbyMemberChanged.Broadcast(LocalName, Lobby, CurrentMembers, MaxMembers);
+	K2_OnLobbyMemberChanged.Broadcast(LocalName, Lobby, CurrentMembers, MaxMembers);
 }
