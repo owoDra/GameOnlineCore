@@ -119,17 +119,14 @@ void UOnlineLobbySubsystem::HandleUserJoinLobbyRequest(const FUILobbyJoinRequest
 
 void UOnlineLobbySubsystem::HandleLobbyMemberJoined(const FLobbyMemberJoined& EventParams)
 {
-	const auto LocalName{ EventParams.Lobby->LocalName };
-	const auto CurrentMembers{ EventParams.Lobby->Members.Num() };
-	const auto MaxMembers{ EventParams.Lobby->MaxMembers };
-
-	const auto* LobbyResult{ GetJoinedLobby(LocalName) };
-	if (!ensure(LobbyResult))
+	if (!EventParams.Member->bIsLocalMember)
 	{
-		return;
-	}
+		const auto LocalName{ EventParams.Lobby->LocalName };
+		const auto CurrentMembers{ EventParams.Lobby->Members.Num() };
+		const auto MaxMembers{ EventParams.Lobby->MaxMembers };
 
-	NotifyLobbyMemberChanged(LocalName, LobbyResult, CurrentMembers, MaxMembers);
+		NotifyLobbyMemberChanged(LocalName, CurrentMembers, MaxMembers);
+	}
 }
 
 void UOnlineLobbySubsystem::HandleLobbyMemberLeft(const FLobbyMemberLeft& EventParams)
@@ -138,13 +135,7 @@ void UOnlineLobbySubsystem::HandleLobbyMemberLeft(const FLobbyMemberLeft& EventP
 	const auto CurrentMembers{ EventParams.Lobby->Members.Num() };
 	const auto MaxMembers{ EventParams.Lobby->MaxMembers };
 
-	const auto* LobbyResult{ GetJoinedLobby(LocalName) };
-	if (!ensure(LobbyResult))
-	{
-		return;
-	}
-
-	NotifyLobbyMemberChanged(LocalName, LobbyResult, CurrentMembers, MaxMembers);
+	NotifyLobbyMemberChanged(LocalName, CurrentMembers, MaxMembers);
 }
 
 
@@ -239,14 +230,15 @@ void UOnlineLobbySubsystem::HandleCreateOnlineLobbyComplete(const TOnlineResult<
 	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Create Lobby Completed"));
 	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
 	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *CreateResult.GetErrorValue().GetLogString());
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(NewLobby ? NewLobby->LobbyId : FLobbyId()));
-
+	
 	FOnlineServiceResult ServiceResult;
 
 	if (bSuccess)
 	{
 		auto* NewResult{ NewObject<ULobbyResult>(this) };
 		NewResult->InitializeResult(NewLobby);
+
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(NewLobby ? NewLobby->LobbyId : FLobbyId()));
 
 		const auto TravelURL{ OngoingCreateRequest->ConstructTravelURL() };
 		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| URL: %s"), *TravelURL);
@@ -385,7 +377,7 @@ void UOnlineLobbySubsystem::AddJoiningLobby(ULobbyResult* InLobbyResult)
 	check(InLobbyResult);
 
 	const auto& LocalName{ InLobbyResult->GetLocalName() };
-	ensure(JoiningLobbies.Contains(LocalName));
+	ensure(!JoiningLobbies.Contains(LocalName));
 
 	JoiningLobbies.Emplace(LocalName, InLobbyResult);
 }
@@ -620,8 +612,76 @@ void UOnlineLobbySubsystem::NotifyUserJoinLobbyRequest(const FPlatformUserId& Lo
 
 // Lobby Member Change
 
-void UOnlineLobbySubsystem::NotifyLobbyMemberChanged(FName LocalName, const ULobbyResult* Lobby, int32 CurrentMembers, int32 MaxMembers)
+void UOnlineLobbySubsystem::NotifyLobbyMemberChanged(FName LocalName, int32 CurrentMembers, int32 MaxMembers)
 {
-	OnLobbyMemberChanged.Broadcast(LocalName, Lobby, CurrentMembers, MaxMembers);
-	K2_OnLobbyMemberChanged.Broadcast(LocalName, Lobby, CurrentMembers, MaxMembers);
+	OnLobbyMemberChanged.Broadcast(LocalName, CurrentMembers, MaxMembers);
+	K2_OnLobbyMemberChanged.Broadcast(LocalName, CurrentMembers, MaxMembers);
+}
+
+
+// Travel Lobby
+
+bool UOnlineLobbySubsystem::TravelToLobby(APlayerController* InPlayerController, const ULobbyResult* LobbyResult)
+{
+	if (!InPlayerController)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Invalid Player Controller"));
+		return false;
+	}
+
+	auto* LocalPlayer{ InPlayerController->GetLocalPlayer() };
+	if (!LocalPlayer)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Can't get LocalPlayer from PlayerController(%s)"), *GetNameSafe(InPlayerController));
+		return false;
+	}
+
+	const auto AccountId{ LocalPlayer->GetPreferredUniqueNetId().GetV2() };
+	if (!AccountId.IsValid())
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Invalid AccountId from LocalPlayer(%s)"), *GetNameSafe(LocalPlayer));
+		return false;
+	}
+
+	if (!LobbyResult)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Invalid LobbyResult"));
+		return false;
+	}
+
+	const auto URL{ LobbyResult->GetLobbyTravelURL() };
+	if (URL.IsEmpty())
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: No URL in LobbyResult(%s)"), *GetNameSafe(LobbyResult));
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("If you have not joined the lobby, the URL does not exist."));
+		return false;
+	}
+
+	auto Lobby{ LobbyResult->GetLobby() };
+	if (!Lobby)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Invalid Lobby in LobbyResult(%s)"), *GetNameSafe(LobbyResult));
+		return false;
+	}
+
+	auto* World{ GetWorld() };
+	if (!World)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Travel To Lobby Failed: Invalid World"));
+		return false;
+	}
+
+	// Start Travel
+
+	const auto bIsHost{ Lobby->OwnerAccountId == AccountId };
+
+	if (bIsHost)
+	{
+		return World->ServerTravel(URL);
+	}
+	else
+	{
+		InPlayerController->ClientTravel(URL, TRAVEL_Absolute);
+		return true;
+	}
 }

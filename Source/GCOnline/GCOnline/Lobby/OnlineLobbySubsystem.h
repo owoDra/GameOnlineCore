@@ -36,15 +36,13 @@ class ULobbyResult;
  * Event triggered when the local user has requested to join a lobby from an external source, for example from a platform overlay.
  * Generally, the game should transition the player into the lobby.
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FLobbyMemberChangedDelegate
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FLobbyMemberChangedDelegate
     , FName					/* LocalName */
-    , const ULobbyResult*	/* Lobby */
     , int32					/* CurrentMembers */
     , int32					/* MaxMembers */);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FLobbyMemberChangedDynamicDelegate
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLobbyMemberChangedDynamicDelegate
     , FName, LocalName
-    , const ULobbyResult*, Lobby
     , int32, CurrentMembers
     , int32, MaxMembers);
 
@@ -264,6 +262,13 @@ public:
     FLobbyMemberChangedDelegate OnLobbyMemberChanged;
 
 protected:
-    void NotifyLobbyMemberChanged(FName LocalName, const ULobbyResult* Lobby, int32 CurrentMembers, int32 MaxMembers);
+    void NotifyLobbyMemberChanged(FName LocalName, int32 CurrentMembers, int32 MaxMembers);
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Travel Lobby
+public:
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
+    virtual bool TravelToLobby(APlayerController* InPlayerController, const ULobbyResult* LobbyResult);
 
 };
