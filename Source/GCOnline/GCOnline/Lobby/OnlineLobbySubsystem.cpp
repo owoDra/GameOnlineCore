@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineLobbySubsystem.h"
 
@@ -45,15 +45,15 @@ bool UOnlineLobbySubsystem::ShouldCreateSubsystem(UObject* Outer) const
 
 void UOnlineLobbySubsystem::BindLobbiesDelegates()
 {
-	auto LobbiesInterface{ GetLobbiesInterface() };
-	check(LobbiesInterface);
+	if (auto LobbiesInterface{ GetLobbiesInterface() })
+	{
+		LobbyDelegateHandles.Emplace(LobbiesInterface->OnUILobbyJoinRequested().Add(this, &ThisClass::HandleUserJoinLobbyRequest));
+		LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberJoined().Add(this, &ThisClass::HandleLobbyMemberJoined));
+		LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberLeft().Add(this, &ThisClass::HandleLobbyMemberLeft));
 
-	LobbyDelegateHandles.Emplace(LobbiesInterface->OnUILobbyJoinRequested().Add(this, &ThisClass::HandleUserJoinLobbyRequest));
-	LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberJoined().Add(this, &ThisClass::HandleLobbyMemberJoined));
-	LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyMemberLeft().Add(this, &ThisClass::HandleLobbyMemberLeft));
-
-	/// @TODO Support Leader change and host migration
-	// LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyLeaderChanged().Add(this, &ThisClass::HandleLobbyMemberLeft));
+		/// @TODO Support Leader change and host migration
+		// LobbyDelegateHandles.Emplace(LobbiesInterface->OnLobbyLeaderChanged().Add(this, &ThisClass::HandleLobbyMemberLeft));
+	}
 }
 
 void UOnlineLobbySubsystem::UnbindLobbiesDelegates()
