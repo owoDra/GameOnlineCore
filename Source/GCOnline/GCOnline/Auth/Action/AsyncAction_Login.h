@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -29,10 +29,10 @@ protected:
 
 public:
 	//
-	// Call when initialization succeeds or fails
+	// Call when login succeeds or fails
 	//
 	UPROPERTY(BlueprintAssignable)
-	FLocalUserLoginCompleteDynamicMulticastDelegate OnInitializationComplete;
+	FLocalUserLoginCompleteDynamicMulticastDelegate OnLoginComplete;
 
 public:
 	/**

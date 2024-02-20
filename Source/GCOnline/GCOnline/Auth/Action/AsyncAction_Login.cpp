@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "AsyncAction_Login.h"
 
@@ -91,7 +91,7 @@ void UAsyncAction_Login::HandleInitializationComplete(UOnlineLocalUserSubsystem*
 {
 	if (ShouldBroadcastDelegates())
 	{
-		OnInitializationComplete.Broadcast(PlayerController.Get(), Result, OnlineContext);
+		OnLoginComplete.Broadcast(PlayerController.Get(), Result, OnlineContext);
 	}
 
 	SetReadyToDestroy();
