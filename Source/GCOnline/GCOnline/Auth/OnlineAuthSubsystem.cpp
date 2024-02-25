@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineAuthSubsystem.h"
 
@@ -45,6 +45,11 @@ void UOnlineAuthSubsystem::Deinitialize()
 
 bool UOnlineAuthSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
+	if (Cast<UGameInstance>(Outer)->IsDedicatedServerInstance())
+	{
+		return false;
+	}
+
 	TArray<UClass*> ChildClasses;
 	GetDerivedClasses(GetClass(), ChildClasses, false);
 

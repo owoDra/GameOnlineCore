@@ -1,9 +1,10 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
 #include "Subsystems/GameInstanceSubsystem.h"
 
+#include "Type/OnlineServiceContextTypes.h"
 #include "Type/OnlineLobbyAttributeTypes.h"
 #include "Type/OnlineLobbyCreateTypes.h"
 #include "Type/OnlineLobbyJoinTypes.h"

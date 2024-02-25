@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -55,7 +55,7 @@ enum class ELobbyAttributeValueType : uint8
  * Data for modifying lobby attributes
  */
 USTRUCT(BlueprintType)
-struct FLobbyAttribute
+struct GCONLINE_API FLobbyAttribute
 {
 	GENERATED_BODY()
 public:
@@ -97,6 +97,8 @@ public:
 	FSchemaVariant ToSchemaVariant() const;
 
 public:
+	bool operator==(const FLobbyAttribute& Other) const { return (Name == Other.Name) && (Value == Other.Value) && (Type == Other.Type); }
+
 	friend FORCEINLINE uint32 GetTypeHash(const FLobbyAttribute& Attr) { return GetTypeHash(Attr.Name); }
 
 };
@@ -126,7 +128,7 @@ public:
  * Data used to filter lobby attributes
  */
 USTRUCT(BlueprintType)
-struct FLobbyAttributeFilter
+struct GCONLINE_API FLobbyAttributeFilter
 {
 	GENERATED_BODY()
 public:
@@ -143,6 +145,8 @@ public:
 	ELobbyAttributeComparisonOp ComparisonOp{ ELobbyAttributeComparisonOp::Equals };
 
 public:
+	bool operator==(const FLobbyAttributeFilter& Other) const { return (Attribute == Other.Attribute) && (ComparisonOp == Other.ComparisonOp); }
+
 	friend FORCEINLINE uint32 GetTypeHash(const FLobbyAttributeFilter& Filter) { return GetTypeHash(Filter.Attribute); }
 
 	FFindLobbySearchFilter ToSearchFilter() const;

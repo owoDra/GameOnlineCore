@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "AsyncAction_QuickPlayLobby.h"
 
@@ -10,7 +10,7 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AsyncAction_QuickPlayLobby)
 
 
-UAsyncAction_QuickPlayLobby* UAsyncAction_QuickPlayLobby::QuickPlayLobby(UOnlineLobbySubsystem* Target, APlayerController* PlayerController, ULobbySearchRequest* SearchRequest, ULobbyCreateRequest* CreateRequest)
+UAsyncAction_QuickPlayLobby* UAsyncAction_QuickPlayLobby::QuickPlayLobby(UOnlineLobbySubsystem* Target, APlayerController* PlayerController, ULobbySearchRequest* SearchRequest, ULobbyCreateRequest* CreateRequest, bool bCanBeHost)
 {
 	auto* Action{ NewObject<UAsyncAction_QuickPlayLobby>() };
 
@@ -19,6 +19,8 @@ UAsyncAction_QuickPlayLobby* UAsyncAction_QuickPlayLobby::QuickPlayLobby(UOnline
 	Action->PC = PlayerController;
 	Action->SearchReq = SearchRequest;
 	Action->CreateReq = CreateRequest;
+	Action->bPendingCancel = false;
+	Action->bCanCreateLobby = bCanBeHost;
 
 	return Action;
 }
@@ -36,11 +38,28 @@ void UAsyncAction_QuickPlayLobby::Activate()
 	}
 }
 
+void UAsyncAction_QuickPlayLobby::Cancel()
+{
+	bPendingCancel = true;
+
+	if (ShouldBroadcastDelegates())
+	{
+		OnCancelled.Broadcast(PC.Get(), nullptr, FOnlineServiceResult());
+	}
+
+	SetReadyToDestroy();
+}
+
 
 // [Step A] Search and choose lobby
 
 void UAsyncAction_QuickPlayLobby::StepA1_SearchLobby()
 {
+	if (bPendingCancel)
+	{
+		return;
+	}
+
 	auto NewDelegate
 	{
 		FLobbySearchCompleteDelegate::CreateUObject(this, &ThisClass::StepA2_SelectLobby)
@@ -56,6 +75,11 @@ void UAsyncAction_QuickPlayLobby::StepA1_SearchLobby()
 
 void UAsyncAction_QuickPlayLobby::StepA2_SelectLobby(ULobbySearchRequest* SearchRequest, FOnlineServiceResult Result)
 {
+	if (bPendingCancel)
+	{
+		return;
+	}
+
 	if (Result.bWasSuccessful)
 	{
 		const auto ResultCount{ SearchRequest ? SearchRequest->Results.Num() : INDEX_NONE };
@@ -97,6 +121,11 @@ ULobbyResult* UAsyncAction_QuickPlayLobby::ChoosePreferredLobby(const TArray<ULo
 
 void UAsyncAction_QuickPlayLobby::StepB1_JoinLobby(ULobbyResult* PrefferedLobbyResult)
 {
+	if (bPendingCancel)
+	{
+		return;
+	}
+
 	// Join only if there is a Preferred Lobby
 
 	if (PrefferedLobbyResult && Subsystem.IsValid() && PC.IsValid())
@@ -119,6 +148,12 @@ void UAsyncAction_QuickPlayLobby::StepB1_JoinLobby(ULobbyResult* PrefferedLobbyR
 
 void UAsyncAction_QuickPlayLobby::StepB2_CompleteJoin(ULobbyJoinRequest* JoinRequest, FOnlineServiceResult Result)
 {
+	if (bPendingCancel)
+	{
+		HandleLeaveLobby();
+		return;
+	}
+
 	// Handle quick play success if successed
 
 	if (Result.bWasSuccessful)
@@ -157,6 +192,17 @@ ULobbyJoinRequest* UAsyncAction_QuickPlayLobby::CreatePreferredJoinRequest(ULobb
 
 void UAsyncAction_QuickPlayLobby::StepC1_CreateLobby()
 {
+	if (bPendingCancel)
+	{
+		return;
+	}
+
+	if (!bCanCreateLobby)
+	{
+		HandleFailure();
+		return;
+	}
+
 	auto NewDelegate
 	{
 		FLobbyCreateCompleteDelegate::CreateUObject(this, &ThisClass::StepC2_CompleteCreate)
@@ -172,6 +218,12 @@ void UAsyncAction_QuickPlayLobby::StepC1_CreateLobby()
 
 void UAsyncAction_QuickPlayLobby::StepC2_CompleteCreate(ULobbyCreateRequest* CreateRequest, FOnlineServiceResult Result)
 {
+	if (bPendingCancel)
+	{
+		HandleLeaveLobby();
+		return;
+	}
+
 	// Handle quick play success if successed
 
 	if (Result.bWasSuccessful)
@@ -223,7 +275,7 @@ void UAsyncAction_QuickPlayLobby::HandleFailure()
 		Result.ErrorId = TEXT("Unknown");
 		Result.ErrorText = NSLOCTEXT("GameOnlineCore", "QuickPlayLobbyUnknownFailed", "Unknown Reason");
 
-		OnComplete.Broadcast(PC.Get(), nullptr, Result);
+		OnFailed.Broadcast(PC.Get(), nullptr, Result);
 	}
 
 	SetReadyToDestroy();
@@ -233,8 +285,19 @@ void UAsyncAction_QuickPlayLobby::HandleFailureWithResult(const FOnlineServiceRe
 {
 	if (ShouldBroadcastDelegates())
 	{
-		OnComplete.Broadcast(PC.Get(), nullptr, Result);
+		OnFailed.Broadcast(PC.Get(), nullptr, Result);
 	}
 
 	SetReadyToDestroy();
+}
+
+
+// Cancel
+
+void UAsyncAction_QuickPlayLobby::HandleLeaveLobby()
+{
+	if (Subsystem.IsValid())
+	{
+		Subsystem->CleanUpLobby(CreateReq->LocalName, PC.Get());
+	}
 }

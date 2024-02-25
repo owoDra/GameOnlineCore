@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -39,6 +39,8 @@ protected:
 	TWeakObjectPtr<APlayerController> PC;
 	TObjectPtr<ULobbySearchRequest> SearchReq;
 	TObjectPtr<ULobbyCreateRequest> CreateReq;
+	bool bCanCreateLobby{ false };
+	bool bPendingCancel{ false };
 
 public:
 	UPROPERTY(BlueprintAssignable)
@@ -46,6 +48,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FAsyncQuickPlayLobbyDelegate OnFailed;
+
+	UPROPERTY(BlueprintAssignable)
+	FAsyncQuickPlayLobbyDelegate OnCancelled;
 
 public:
 	/**
@@ -56,10 +61,12 @@ public:
 		UOnlineLobbySubsystem* Target
 		, APlayerController* PlayerController
 		, ULobbySearchRequest* SearchRequest
-		, ULobbyCreateRequest* CreateRequest);
+		, ULobbyCreateRequest* CreateRequest
+		, bool bCanBeHost = false);
 
 protected:
 	virtual void Activate() override;
+	virtual void Cancel() override;
 
 	//////////////////////////////////////////////////////////////////////////////
 	// [Step A] Search and choose lobby
@@ -95,5 +102,11 @@ protected:
 protected:
 	virtual void HandleFailure();
 	virtual void HandleFailureWithResult(const FOnlineServiceResult& Result);
+
+
+	//////////////////////////////////////////////////////////////////////////////
+	// Cancel
+protected:
+	virtual void HandleLeaveLobby();
 
 };
