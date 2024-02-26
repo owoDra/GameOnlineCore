@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlinePrivilegeSubsystem.h"
 
@@ -32,6 +32,11 @@ void UOnlinePrivilegeSubsystem::Deinitialize()
 
 bool UOnlinePrivilegeSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
+	if (Cast<UGameInstance>(Outer)->IsDedicatedServerInstance())
+	{
+		return false;
+	}
+
 	TArray<UClass*> ChildClasses;
 	GetDerivedClasses(GetClass(), ChildClasses, false);
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineConnectivitySubsystem.h"
 
@@ -35,6 +35,11 @@ void UOnlineConnectivitySubsystem::Deinitialize()
 
 bool UOnlineConnectivitySubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
+	if (Cast<UGameInstance>(Outer)->IsDedicatedServerInstance())
+	{
+		return false;
+	}
+
 	TArray<UClass*> ChildClasses;
 	GetDerivedClasses(GetClass(), ChildClasses, false);
 
