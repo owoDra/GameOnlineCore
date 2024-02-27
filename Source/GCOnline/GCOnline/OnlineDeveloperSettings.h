@@ -47,7 +47,7 @@ protected:
 	//
 	// Description of the user's privileges with respect to the online service
 	//
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Privileges", meta = (EditFixedSize, ReadOnlyKeys, ForceInlineRow))
+	UPROPERTY(Config, BlueprintReadOnly, EditAnywhere, Category = "Privileges", meta = (EditFixedSize, ReadOnlyKeys, ForceInlineRow))
 	TMap<EOnlineServiceContext, FPrivilegesDescriptionSetting> PrivilegesDescriptions;
 
 public:
@@ -67,7 +67,7 @@ protected:
 	// Key	 : Name to be used for the project
 	// Value : Name on online service
 	//
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Lobbies", meta = (ForceInlineRow))
+	UPROPERTY(Config, BlueprintReadOnly, EditAnywhere, Category = "Lobbies", meta = (ForceInlineRow))
 	TMap<FName, FName> LobbyAttributeRedirects;
 
 	//
@@ -79,7 +79,7 @@ protected:
 	// Key	 : Name to be used for the project
 	// Value : Name on online service
 	//
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Lobbies", meta = (ForceInlineRow))
+	UPROPERTY(Config, BlueprintReadOnly, EditAnywhere, Category = "Lobbies", meta = (ForceInlineRow))
 	TMap<FName, FName> LobbyUserAttributeRedirects;
 
 public:

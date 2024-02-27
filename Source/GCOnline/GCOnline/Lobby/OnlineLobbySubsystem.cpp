@@ -685,3 +685,98 @@ bool UOnlineLobbySubsystem::TravelToLobby(APlayerController* InPlayerController,
 		return true;
 	}
 }
+
+
+// Modify Lobby
+
+bool UOnlineLobbySubsystem::ModifyLobbyJoinPolicy(APlayerController* InPlayerController, const ULobbyResult* LobbyResult, ELobbyJoinablePolicy NewPolicy, FLobbyModifyCompleteDelegate Delegate)
+{
+	if (!InPlayerController)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Modify Presence Failed: Invalid Player Controller"));
+		return false;
+	}
+
+	auto* LocalPlayer{ InPlayerController->GetLocalPlayer() };
+	if (!LocalPlayer)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Modify Presence Failed: Can't get LocalPlayer from PlayerController(%s)"), *GetNameSafe(InPlayerController));
+		return false;
+	}
+
+	const auto AccountId{ LocalPlayer->GetPreferredUniqueNetId().GetV2() };
+	if (!AccountId.IsValid())
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Modify Presence Failed: Invalid AccountId from LocalPlayer(%s)"), *GetNameSafe(LocalPlayer));
+		return false;
+	}
+
+	if (!LobbyResult)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Modify Presence Failed: Invalid LobbyResult"));
+		return false;
+	}
+
+	auto Lobby{ LobbyResult->GetLobby() };
+	if (!Lobby)
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Modify Presence Failed: Invalid Lobby in LobbyResult(%s)"), *GetNameSafe(LobbyResult));
+		return false;
+	}
+
+	ModifyLobbyJoinPolicyInternal(LocalPlayer, LobbyResult, NewPolicy, Delegate);
+	return true;
+}
+
+void UOnlineLobbySubsystem::ModifyLobbyJoinPolicyInternal(ULocalPlayer* LocalPlayer, const ULobbyResult* LobbyResult, ELobbyJoinablePolicy NewPolicy, FLobbyModifyCompleteDelegate Delegate)
+{
+	auto LobbiesInterface{ GetLobbiesInterface() };
+	check(LobbiesInterface);
+
+	check(LocalPlayer);
+	const auto AccountId{ LocalPlayer->GetPreferredUniqueNetId().GetV2() };
+	check(AccountId.IsValid());
+
+	check(LobbyResult);
+	const auto LobbyId{ LobbyResult->GetLobby()->LobbyId };
+	check(LobbyId.IsValid());
+
+	ensure(Delegate.IsBound());
+	
+	// Modify Join Policy
+
+	FModifyLobbyJoinPolicy::Params Params;
+	Params.JoinPolicy = static_cast<ELobbyJoinPolicy>(NewPolicy);
+	Params.LocalAccountId = AccountId;
+	Params.LobbyId = LobbyId;
+
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Modify Lobby Join Plocy"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| AccountId: %s"), *ToLogString(Params.LocalAccountId));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(Params.LobbyId));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Policy: %s"), *StaticEnum<ELobbyJoinablePolicy>()->GetValueAsString(NewPolicy));
+
+	auto Handle{ LobbiesInterface->ModifyLobbyJoinPolicy(MoveTemp(Params)) };
+	Handle.OnComplete(this, &ThisClass::HandleModifyLobbyJoinPolicyComplete, LobbyResult, Delegate);
+}
+
+void UOnlineLobbySubsystem::HandleModifyLobbyJoinPolicyComplete(const TOnlineResult<FModifyLobbyJoinPolicy>& ModifyResult, const ULobbyResult* LobbyResult, FLobbyModifyCompleteDelegate Delegate)
+{
+	if (ModifyResult.IsOk())
+	{
+		const auto bSuccess{ ModifyResult.IsOk() };
+
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Modify Lobby Join Plocy Completed"));
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *ModifyResult.GetErrorValue().GetLogString());
+
+		FOnlineServiceResult ServiceResult;
+
+		if (!bSuccess)
+		{
+			ServiceResult = FOnlineServiceResult(ModifyResult.GetErrorValue());
+		}
+
+		ensure(Delegate.IsBound());
+		Delegate.ExecuteIfBound(LobbyResult, ServiceResult);
+	}
+}

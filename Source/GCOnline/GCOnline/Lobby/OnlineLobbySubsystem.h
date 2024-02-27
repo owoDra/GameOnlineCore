@@ -49,6 +49,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLobbyMemberChangedDynamicDelegat
 
 
 /**
+ * Delegate to notifies modify lobby completed
+ */
+DECLARE_DELEGATE_TwoParams(FLobbyModifyCompleteDelegate, const ULobbyResult* /*Lobby*/, FOnlineServiceResult /*Result*/);
+
+
+/**
  * Subsystem with features to extend the functionality of Online Servicies (OSSv2) and make it easier to use in projects
  * This subsystem handles the functionality to create and participate in online play matches, standby, and party lobbies.
  * 
@@ -272,4 +278,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
     virtual bool TravelToLobby(APlayerController* InPlayerController, const ULobbyResult* LobbyResult);
 
+
+    //////////////////////////////////////////////////////////////////////
+    // Modify Lobby
+public:
+    virtual bool ModifyLobbyJoinPolicy(
+        APlayerController* InPlayerController
+        , const ULobbyResult* LobbyResult
+        , ELobbyJoinablePolicy NewPolicy
+        , FLobbyModifyCompleteDelegate Delegate = FLobbyModifyCompleteDelegate());
+
+protected:
+    void ModifyLobbyJoinPolicyInternal(
+        ULocalPlayer* LocalPlayer
+        , const ULobbyResult* LobbyResult
+        , ELobbyJoinablePolicy NewPolicy
+        , FLobbyModifyCompleteDelegate Delegate = FLobbyModifyCompleteDelegate());
+
+    virtual void HandleModifyLobbyJoinPolicyComplete(
+        const TOnlineResult<FModifyLobbyJoinPolicy>& ModifyResult
+        , const ULobbyResult* LobbyResult
+        , FLobbyModifyCompleteDelegate Delegate);
 };
