@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -62,6 +62,12 @@ public:
 	 * True if there is a separate platform and service interface
 	 */
     bool HasSeparatePlatformContext() const;
+
+    /**
+     * Return is onliner service enabled
+     */
+    UFUNCTION(BlueprintCallable, Category = "Onliner Service")
+    virtual bool IsOnlineServiceReady() const;
 
 
     ///////////////////////////////////////////////////////////////////////

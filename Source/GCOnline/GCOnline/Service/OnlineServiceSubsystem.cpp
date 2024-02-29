@@ -99,6 +99,11 @@ bool UOnlineServiceSubsystem::HasSeparatePlatformContext() const
 	return PlatformService.IsValid();
 }
 
+bool UOnlineServiceSubsystem::IsOnlineServiceReady() const
+{
+	return DefaultService.IsValid() || PlatformService.IsValid();
+}
+
 
 // Error Message
 

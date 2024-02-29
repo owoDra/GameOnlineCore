@@ -873,7 +873,7 @@ void UOnlineAuthSubsystem::HandleLoginUIClosed(const TOnlineResult<FExternalUISh
 	UE_LOG(LogGameCore_OnlineAuth, Log, TEXT("| PlatformUserId: %d"), PlatformUser.GetInternalId());
 	UE_LOG(LogGameCore_OnlineAuth, Log, TEXT("| AccountId: %s")		, *ToLogString(NewAccountInfo ? NewAccountInfo->AccountId : FAccountId()));
 
-	if (bSuccess)
+	if (bSuccess && NewAccountInfo.IsValid() && NewAccountInfo->AccountId.IsValid())
 	{
 		RequestPtr->LoginUIState = EOnlineServiceTaskState::Done;
 		RequestPtr->Result = FOnlineServiceResult();
