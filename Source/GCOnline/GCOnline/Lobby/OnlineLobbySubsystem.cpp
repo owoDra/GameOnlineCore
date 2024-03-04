@@ -68,6 +68,11 @@ void UOnlineLobbySubsystem::UnbindLobbiesDelegates()
 
 ILobbiesPtr UOnlineLobbySubsystem::GetLobbiesInterface(EOnlineServiceContext Context) const
 {
+	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
+	{
+		return nullptr;
+	}
+
 	auto OnlineService{ OnlineServiceSubsystem->GetContextCache() };
 
 	if (ensure(OnlineService))
@@ -572,6 +577,11 @@ void UOnlineLobbySubsystem::CleanUpAllLobbies(const APlayerController* InPlayerC
 
 void UOnlineLobbySubsystem::CleanUpLobby(FName LocalName, const APlayerController* InPlayerController)
 {
+	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
+	{
+		return;
+	}
+
 	auto LobbiesInterface{ GetLobbiesInterface() };
 	check(LobbiesInterface);
 

@@ -50,6 +50,11 @@ bool UOnlinePrivilegeSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 
 IPrivilegesPtr UOnlinePrivilegeSubsystem::GetPrivilegesInterface(EOnlineServiceContext Context) const
 {
+	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
+	{
+		return nullptr;
+	}
+
 	auto OnlineService{ OnlineServiceSubsystem->GetContextCache() };
 
 	if (ensure(OnlineService))

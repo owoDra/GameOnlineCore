@@ -113,6 +113,11 @@ void UOnlineConnectivitySubsystem::UnbindConnectivityDelegates()
 
 IConnectivityPtr UOnlineConnectivitySubsystem::GetConecctivityInterface(EOnlineServiceContext Context) const
 {
+	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
+	{
+		return nullptr;
+	}
+
 	auto OnlineService{ OnlineServiceSubsystem->GetContextCache() };
 
 	if (ensure(OnlineService))

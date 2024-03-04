@@ -95,6 +95,11 @@ void UOnlineAuthSubsystem::UnbindLoginDelegates()
 
 IAuthPtr UOnlineAuthSubsystem::GetAuthInterface(EOnlineServiceContext Context) const
 {
+	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
+	{
+		return nullptr;
+	}
+
 	auto OnlineService{ OnlineServiceSubsystem->GetContextCache() };
 
 	if (ensure(OnlineService))
