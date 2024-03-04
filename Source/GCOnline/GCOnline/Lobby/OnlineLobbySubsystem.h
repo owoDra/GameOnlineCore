@@ -53,6 +53,11 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLobbyMemberChangedDynamicDelegat
  */
 DECLARE_DELEGATE_TwoParams(FLobbyModifyCompleteDelegate, const ULobbyResult* /*Lobby*/, FOnlineServiceResult /*Result*/);
 
+/**
+ * Delegate to notifies leave lobby completed
+ */
+DECLARE_DELEGATE_OneParam(FLobbyLeaveCompleteDelegate, FOnlineServiceResult/*Result*/);
+
 
 /**
  * Subsystem with features to extend the functionality of Online Servicies (OSSv2) and make it easier to use in projects
@@ -232,18 +237,25 @@ protected:
     // Clean Up Lobby
 public:
     /**
-     * Clean up all active lobbies, called from cases like returning to the main menu
-     */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void CleanUpAllLobbies(const APlayerController* InPlayerController = nullptr);
-
-    /**
      * Clean up specific active lobbys, called from cases like returning to the main menu
      */
-    UFUNCTION(BlueprintCallable, Category = "Lobby")
-    virtual void CleanUpLobby(FName LocalName, const APlayerController* InPlayerController = nullptr);
+    virtual bool CleanUpLobby(
+        FName LocalName
+        , const APlayerController* InPlayerController = nullptr
+        , FLobbyLeaveCompleteDelegate Delegate = FLobbyLeaveCompleteDelegate());
 
 protected:
+    void CleanUpLobbyInternal(
+        FName LocalName
+        , const FAccountId& LocalAccountId
+        , const FLobbyId& LobbyId
+        , FLobbyLeaveCompleteDelegate Delegate = FLobbyLeaveCompleteDelegate());
+
+    virtual void HandleLeaveLobbyComplete(
+        const TOnlineResult<FLeaveLobby>& LeaveResult
+        , FName LocalName
+        , FLobbyLeaveCompleteDelegate Delegate);
+
     virtual void CleanUpOngoingRequest();
 
 

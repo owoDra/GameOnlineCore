@@ -423,16 +423,16 @@ bool UOnlineLobbySubsystem::JoinLobby(APlayerController* JoiningPlayer, ULobbyJo
 		return false;
 	}
 
-	auto Lobby{ LobbyToJoin->GetLobby() };
-	if (!Lobby)
+	auto Lobby{ LobbyToJoin->GetLobbyId() };
+	if (!Lobby.IsValid())
 	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Invalid Lobby"));
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Invalid LobbyId"));
 		return false;
 	}
 
-	if (JoiningLobbies.Contains(Lobby->LocalName))
+	if (JoiningLobbies.Contains(JoinRequest->LocalName))
 	{
-		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Already Joined (LocalName: %s)"), *Lobby->LocalName.ToString());
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("Join Lobby failed: Already Joined (LocalName: %s)"), *JoinRequest->LocalName.ToString());
 		return false;
 	}
 
@@ -545,45 +545,12 @@ FString UOnlineLobbySubsystem::ConstructJoiningLobbyTravelURL(const FAccountId& 
 
 // Clean Up Lobby
 
-void UOnlineLobbySubsystem::CleanUpAllLobbies(const APlayerController* InPlayerController)
-{
-	auto LobbiesInterface{ GetLobbiesInterface() };
-	check(LobbiesInterface);
-
-	CleanUpOngoingRequest();
-
-	auto* PlayerController{ InPlayerController ? InPlayerController : GetGameInstance()->GetFirstLocalPlayerController() };
-	auto* LocalPlayer{ PlayerController ? PlayerController->GetLocalPlayer() : nullptr };
-	auto LocalAccountId{ LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId().GetV2() : FAccountId() };
-
-	if (!LocalAccountId.IsValid())
-	{
-		return;
-	}
-
-	for (auto It{ JoiningLobbies.CreateIterator() }; It; ++It)
-	{
-		auto Lobby{ It->Value ? It->Value->GetLobby() : nullptr };
-		auto LobbyId{ Lobby ? Lobby->LobbyId : FLobbyId() };
-
-		if (LobbyId.IsValid())
-		{
-			LobbiesInterface->LeaveLobby({ LocalAccountId, LobbyId });
-		}
-
-		It.RemoveCurrent();
-	}
-}
-
-void UOnlineLobbySubsystem::CleanUpLobby(FName LocalName, const APlayerController* InPlayerController)
+bool UOnlineLobbySubsystem::CleanUpLobby(FName LocalName, const APlayerController* InPlayerController, FLobbyLeaveCompleteDelegate Delegate)
 {
 	if (!OnlineServiceSubsystem->IsOnlineServiceReady())
 	{
-		return;
+		return false;
 	}
-
-	auto LobbiesInterface{ GetLobbiesInterface() };
-	check(LobbiesInterface);
 
 	CleanUpOngoingRequest();
 
@@ -597,10 +564,63 @@ void UOnlineLobbySubsystem::CleanUpLobby(FName LocalName, const APlayerControlle
 
 	if (LocalAccountId.IsValid() && LobbyId.IsValid())
 	{
-		LobbiesInterface->LeaveLobby({ LocalAccountId, LobbyId });
+		CleanUpLobbyInternal(LocalName, LocalAccountId, LobbyId, Delegate);
+		return true;
+	}
+	else
+	{
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("CleanUpLobby failed"));
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("| LocalAccountId: %s"), *ToLogString(LocalAccountId));
+		UE_LOG(LogGameCore_OnlineLobbies, Error, TEXT("| LobbyId: %s"), *ToLogString(LobbyId));
+
+		return false;
+	}
+}
+
+void UOnlineLobbySubsystem::CleanUpLobbyInternal(FName LocalName, const FAccountId& LocalAccountId, const FLobbyId& LobbyId, FLobbyLeaveCompleteDelegate Delegate)
+{
+	check(LocalName.IsValid());
+	check(LocalAccountId.IsValid());
+	check(LobbyId.IsValid());
+	ensure(Delegate.IsBound());
+
+	auto LobbiesInterface{ GetLobbiesInterface() };
+	check(LobbiesInterface);
+
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("CleanUpLobby: Leave Lobby"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LocalAccountId: %s"), *ToLogString(LocalAccountId));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LobbyId: %s"), *ToLogString(LobbyId));
+
+	FLeaveLobby::Params Param;
+	Param.LobbyId = LobbyId;
+	Param.LocalAccountId = LocalAccountId;
+
+	auto Handle{ LobbiesInterface->LeaveLobby(MoveTemp(Param)) };
+	Handle.OnComplete(this, &ThisClass::HandleLeaveLobbyComplete, LocalName, Delegate);
+}
+
+void UOnlineLobbySubsystem::HandleLeaveLobbyComplete(const TOnlineResult<FLeaveLobby>& LeaveResult, FName LocalName, FLobbyLeaveCompleteDelegate Delegate)
+{
+	const auto bSuccess{ LeaveResult.IsOk() };
+
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Leave Lobby Completed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *LeaveResult.GetErrorValue().GetLogString());
+	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| LocalName: %s"), *LocalName.ToString());
+
+	FOnlineServiceResult ServiceResult;
+
+	if (bSuccess)
+	{
+		RemoveJoiningLobby(LocalName);
+	}
+	else
+	{
+		ServiceResult = FOnlineServiceResult(LeaveResult.GetErrorValue());
 	}
 
-	RemoveJoiningLobby(LocalName);
+	ensure(Delegate.IsBound());
+	Delegate.ExecuteIfBound(ServiceResult);
 }
 
 void UOnlineLobbySubsystem::CleanUpOngoingRequest()

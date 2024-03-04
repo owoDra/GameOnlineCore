@@ -1,8 +1,9 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineLobbyResultTypes.h"
 
 #include "OnlineDeveloperSettings.h"
+#include "OnlineLobbySubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OnlineLobbyResultTypes)
 
@@ -26,6 +27,11 @@ FName ULobbyResult::GetLocalName() const
 FAccountId ULobbyResult::GetOwnerAccountId() const
 {
 	return ensure(Lobby) ? Lobby->OwnerAccountId : FAccountId();
+}
+
+FLobbyId ULobbyResult::GetLobbyId() const
+{
+	return Lobby ? Lobby->LobbyId : TemporalLobbyId.GetLobbyId();
 }
 
 
@@ -121,9 +127,30 @@ int32 ULobbyResult::GetNumOpenSlot() const
 }
 
 
+// Temporal Lobby Result
+
+ULobbyResult* ULobbyResult::CreateTemporalLobbyResult(UOnlineLobbySubsystem* InSubsystem, FLobbyIdWrapper InLobbyIdWrapper)
+{
+	if (InSubsystem && InLobbyIdWrapper.IsValid())
+	{
+		auto* NewLobbyResult{ NewObject<ULobbyResult>(InSubsystem) };
+		NewLobbyResult->TemporalLobbyId = InLobbyIdWrapper;
+
+		return NewLobbyResult;
+	}
+
+	return nullptr;
+}
+
+
 // Utilities
 
 FString ULobbyResult::GetDebugString() const
 {
-	return ensure(Lobby) ? ToLogString(Lobby->LobbyId) : TEXT("INVALID LOBBY");
+	return Lobby ? ToLogString(Lobby->LobbyId) : TEXT("INVALID LOBBY");
+}
+
+FLobbyIdWrapper ULobbyResult::GetLobbyIdWrapper() const
+{
+	return Lobby ? FLobbyIdWrapper(Lobby->LobbyId) : TemporalLobbyId;
 }

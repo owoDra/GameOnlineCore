@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineLobbyJoinTypes.h"
 
@@ -17,11 +17,10 @@ FJoinLobby::Params ULobbyJoinRequest::GenerateJoinParameters() const
 {
 	FJoinLobby::Params Params;
 
-	auto Lobby{ ensure(LobbyToJoin) ? LobbyToJoin->GetLobby() : nullptr };
-	if (ensure(Lobby))
+	if (ensure(LobbyToJoin))
 	{
 		Params.LocalName = LocalName;
-		Params.LobbyId = Lobby->LobbyId;
+		Params.LobbyId = LobbyToJoin->GetLobbyId();
 		Params.bPresenceEnabled = bPresenceEnabled;
 	}
 
