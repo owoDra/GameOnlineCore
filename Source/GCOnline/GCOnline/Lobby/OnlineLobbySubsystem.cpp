@@ -508,9 +508,16 @@ void UOnlineLobbySubsystem::HandleJoinOnlineLobbyComplete(const TOnlineResult<FJ
 		const auto TravelURL{ ConstructJoiningLobbyTravelURL(JoiningAccountId, NewLobby->LobbyId) };
 		UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| URL: %s"), *TravelURL);
 
-		OngoingJoinRequest->LobbyToJoin->SetLobbyTravelURL(TravelURL);
+		if (TravelURL.IsEmpty() || !NewLobby.IsValid())
+		{
+			ServiceResult.bWasSuccessful = false;
+		}
+		else
+		{
+			OngoingJoinRequest->LobbyToJoin->SetLobbyTravelURL(TravelURL);
 
-		AddJoiningLobby(OngoingJoinRequest->LobbyToJoin);
+			AddJoiningLobby(OngoingJoinRequest->LobbyToJoin);
+		}
 	}
 	else
 	{
