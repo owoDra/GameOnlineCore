@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineLocalUserSubsystem.h"
 
@@ -127,6 +127,7 @@ void UOnlineLocalUserSubsystem::UpdateCachedAccountInfo(const TSharedPtr<FAccoun
 		if (PlayerState)
 		{
 			PlayerState->SetUniqueId(NetId);
+			PlayerState->SetPlayerName(GetNickname());
 		}
 	}
 }
