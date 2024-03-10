@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -32,6 +32,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FUserJoinLobbyRequestDynamicDeleg
  * Delegate to notifies lobby join has completed
  */
 DECLARE_DELEGATE_TwoParams(FLobbyJoinCompleteDelegate, ULobbyJoinRequest* /*Lobby*/, FOnlineServiceResult /*Result*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FLobbyJoinCompleteMulticastDelegate, ULobbyJoinRequest*/*Lobby*/, FOnlineServiceResult/*Result*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FLobbyJoinCompleteDynamicDelegate, ULobbyJoinRequest*, Lobby, FOnlineServiceResult, Result);
 
 
 /**

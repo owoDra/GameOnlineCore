@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #include "OnlineServiceResultTypes.h"
 
@@ -12,7 +12,7 @@
 
 FOnlineServiceResult::FOnlineServiceResult(const FOnlineErrorType& InOnlineError)
 {
-	bWasSuccessful = (InOnlineError != Errors::Success());
+	bWasSuccessful = false;
 	ErrorId = InOnlineError.GetErrorId();
 	ErrorText = InOnlineError.GetText();
 }

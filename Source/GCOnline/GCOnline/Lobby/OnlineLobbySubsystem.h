@@ -49,6 +49,20 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLobbyMemberChangedDynamicDelegat
 
 
 /**
+ * Event triggered when Lobby leaders have changed.
+ */
+DECLARE_MULTICAST_DELEGATE_OneParam(FLobbyLeaderChangedDelegate, FName /* LocalName */);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLobbyLeaderChangedDynamicDelegate, FName, LocalName);
+
+
+/**
+ * Event triggered when Became a lobby leader.
+ */
+DECLARE_MULTICAST_DELEGATE_OneParam(FLobbyBecomeLeaderDelegate, FName /* LocalName */);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLobbyBecomeLeaderDynamicDelegate, FName, LocalName);
+
+
+/**
  * Delegate to notifies modify lobby completed
  */
 DECLARE_DELEGATE_TwoParams(FLobbyModifyCompleteDelegate, const ULobbyResult* /*Lobby*/, FOnlineServiceResult /*Result*/);
@@ -107,6 +121,7 @@ protected:
     void HandleUserJoinLobbyRequest(const FUILobbyJoinRequested& EventParams);
     void HandleLobbyMemberJoined(const FLobbyMemberJoined& EventParams);
     void HandleLobbyMemberLeft(const FLobbyMemberLeft& EventParams);
+    void HandleLobbyLeaderChanged(const FLobbyLeaderChanged& EventParams);
 
 
     //////////////////////////////////////////////////////////////////////
@@ -114,6 +129,11 @@ protected:
 protected:
     UPROPERTY(Transient)
     TObjectPtr<ULobbyCreateRequest> OngoingCreateRequest{ nullptr };
+
+public:
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On Lobby Create Complete"))
+    FLobbyCreateCompleteDynamicDelegate K2_OnLobbyCreateComplete;
+    FLobbyCreateCompleteMulticastDelegate OnLobbyCreateComplete;
 
 public:
     /**
@@ -187,6 +207,11 @@ protected:
 
     UPROPERTY(Transient)
     TObjectPtr<ULobbyJoinRequest> OngoingJoinRequest{ nullptr };
+
+public:
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On Lobby Join Complete"))
+    FLobbyJoinCompleteDynamicDelegate K2_OnLobbyJoinComplete;
+    FLobbyJoinCompleteMulticastDelegate OnLobbyJoinComplete;
 
 public:
     /**
@@ -285,6 +310,22 @@ protected:
 
 
     //////////////////////////////////////////////////////////////////////
+    // Lobby Leader Change
+public:
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On Lobby Leader Changed"))
+    FLobbyLeaderChangedDynamicDelegate K2_OnLobbyLeaderChanged;
+    FLobbyLeaderChangedDelegate OnLobbyLeaderChanged;
+
+    UPROPERTY(BlueprintAssignable, Category = "Lobby", meta = (DisplayName = "On Lobby Become Leader"))
+    FLobbyBecomeLeaderDynamicDelegate K2_OnLobbyBecomeLeader;
+    FLobbyBecomeLeaderDelegate OnLobbyBecomeLeader;
+
+protected:
+    void NotifyLobbyLeaderChanged(FName LocalName);
+    void NotifyLobbyBecomeLeader(FName LocalName);
+
+
+    //////////////////////////////////////////////////////////////////////
     // Travel Lobby
 public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
@@ -293,6 +334,8 @@ public:
 
     //////////////////////////////////////////////////////////////////////
     // Modify Lobby
+
+    // ==== Join Policy ===
 public:
     virtual bool ModifyLobbyJoinPolicy(
         APlayerController* InPlayerController
@@ -309,6 +352,28 @@ protected:
 
     virtual void HandleModifyLobbyJoinPolicyComplete(
         const TOnlineResult<FModifyLobbyJoinPolicy>& ModifyResult
+        , const ULobbyResult* LobbyResult
+        , FLobbyModifyCompleteDelegate Delegate);
+
+    // ==== Attribute ===
+public:
+    virtual bool ModifyLobbyAttribute(
+        APlayerController* InPlayerController
+        , const ULobbyResult* LobbyResult
+        , TSet<FLobbyAttribute> AttrToChange
+        , TSet<FLobbyAttribute> AttrToRemove
+        , FLobbyModifyCompleteDelegate Delegate = FLobbyModifyCompleteDelegate());
+
+protected:
+    void ModifyLobbyAttributeInternal(
+        ULocalPlayer* LocalPlayer
+        , const ULobbyResult* LobbyResult
+        , TSet<FLobbyAttribute> AttrToChange
+        , TSet<FLobbyAttribute> AttrToRemove
+        , FLobbyModifyCompleteDelegate Delegate = FLobbyModifyCompleteDelegate());
+
+    virtual void HandleModifyLobbyAttributeComplete(
+        const TOnlineResult<FModifyLobbyAttributes>& ModifyResult
         , const ULobbyResult* LobbyResult
         , FLobbyModifyCompleteDelegate Delegate);
 };

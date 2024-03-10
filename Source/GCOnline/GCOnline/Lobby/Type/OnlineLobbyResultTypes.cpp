@@ -31,7 +31,7 @@ FAccountId ULobbyResult::GetOwnerAccountId() const
 
 FLobbyId ULobbyResult::GetLobbyId() const
 {
-	return Lobby ? Lobby->LobbyId : TemporalLobbyId.GetLobbyId();
+	return ensure(Lobby) ? Lobby->LobbyId : FLobbyId();
 }
 
 
@@ -43,7 +43,7 @@ bool ULobbyResult::GetLobbyAttributeAsString(FName Key, FString& OutValue) const
 	{
 		return false;
 	}
-
+	
 	if (const auto* VariantValue{ Lobby->Attributes.Find(ResolveAttributeKey(Key)) })
 	{
 		OutValue = VariantValue->GetString();
@@ -127,30 +127,9 @@ int32 ULobbyResult::GetNumOpenSlot() const
 }
 
 
-// Temporal Lobby Result
-
-ULobbyResult* ULobbyResult::CreateTemporalLobbyResult(UOnlineLobbySubsystem* InSubsystem, FLobbyIdWrapper InLobbyIdWrapper)
-{
-	if (InSubsystem && InLobbyIdWrapper.IsValid())
-	{
-		auto* NewLobbyResult{ NewObject<ULobbyResult>(InSubsystem) };
-		NewLobbyResult->TemporalLobbyId = InLobbyIdWrapper;
-
-		return NewLobbyResult;
-	}
-
-	return nullptr;
-}
-
-
 // Utilities
 
 FString ULobbyResult::GetDebugString() const
 {
 	return Lobby ? ToLogString(Lobby->LobbyId) : TEXT("INVALID LOBBY");
-}
-
-FLobbyIdWrapper ULobbyResult::GetLobbyIdWrapper() const
-{
-	return Lobby ? FLobbyIdWrapper(Lobby->LobbyId) : TemporalLobbyId;
 }

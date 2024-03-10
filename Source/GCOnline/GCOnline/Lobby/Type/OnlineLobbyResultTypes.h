@@ -14,41 +14,6 @@ using namespace UE::Online;
 class UOnlineLobbySubsystem;
 
 
-/**
- * LobbyId wrappper for blueprint usage
- */
-USTRUCT(BlueprintType)
-struct FLobbyIdWrapper
-{
-	GENERATED_BODY()
-public:
-	FLobbyIdWrapper() = default;
-	FLobbyIdWrapper(const FLobbyId& InLobbyId)
-	{
-		Type = static_cast<uint8>(InLobbyId.GetOnlineServicesType());
-		Handle = static_cast<int32>(InLobbyId.GetHandle());
-	}
-
-private:
-	UPROPERTY()
-	uint8 Type{ static_cast<uint8>(EOnlineServices::None) };
-
-	UPROPERTY()
-	int32 Handle;
-
-public:
-	FLobbyId GetLobbyId() const
-	{
-		return FLobbyId(static_cast<EOnlineServices>(Type), static_cast<uint32>(Handle));
-	}
-
-	bool IsValid() const
-	{
-		return (Type != static_cast<uint8>(EOnlineServices::None));
-	}
-};
-
-
 /** 
  * A result object returned from the online system that describes a joinable/joined game lobby 
  */
@@ -158,22 +123,6 @@ public:
 
 
 	///////////////////////////////////////////////////
-	// Temporal Lobby Result
-protected:
-	//
-	// LobbyId for temporary lobby results created using LobbyId
-	// 
-	// Tips:
-	//	This is used to recover from a disconnected lobby due to communication problems, for example, when using a saved LobbyId.
-	//
-	UPROPERTY(Transient)
-	FLobbyIdWrapper TemporalLobbyId;
-
-public:
-	UFUNCTION(BlueprintCallable, Category = "Lobby", meta = (WorldContext = "InWorldContext"))
-	static ULobbyResult* CreateTemporalLobbyResult(UOnlineLobbySubsystem* InSubsystem, FLobbyIdWrapper InLobbyIdWrapper);
-
-	///////////////////////////////////////////////////
 	// Utilities
 public:
 	/**
@@ -181,11 +130,5 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Debug")
 	FString GetDebugString() const;
-
-	/**
-	 * Returns lobby id wrapper
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Debug")
-	FLobbyIdWrapper GetLobbyIdWrapper() const;
 
 };

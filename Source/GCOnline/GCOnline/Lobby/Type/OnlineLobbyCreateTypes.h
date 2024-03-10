@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 #pragma once
 
@@ -62,6 +62,8 @@ enum class ELobbyJoinablePolicy : uint8
  * Delegates to notifies lobby creation for hosting has completed,
  */
 DECLARE_DELEGATE_TwoParams(FLobbyCreateCompleteDelegate, ULobbyCreateRequest* /*Request*/, FOnlineServiceResult /*Result*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FLobbyCreateCompleteMulticastDelegate, ULobbyCreateRequest* /*Request*/, FOnlineServiceResult /*Result*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FLobbyCreateCompleteDynamicDelegate, ULobbyCreateRequest*, Request, FOnlineServiceResult, Result);
 
 
 ////////////////////////////////////////////////////////////////////////
