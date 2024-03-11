@@ -34,12 +34,22 @@ class GCONLINE_API UAsyncAction_QuickPlayLobby : public UCancellableAsyncAction
 	GENERATED_BODY()
 
 protected:
+	UPROPERTY(Transient)
 	TWeakObjectPtr<UOnlineLobbySubsystem> Subsystem;
 
+	UPROPERTY(Transient)
 	TWeakObjectPtr<APlayerController> PC;
+
+	UPROPERTY(Transient)
 	TObjectPtr<ULobbySearchRequest> SearchReq;
+
+	UPROPERTY(Transient)
 	TObjectPtr<ULobbyCreateRequest> CreateReq;
+
+	UPROPERTY(Transient)
 	bool bCanCreateLobby{ false };
+
+	UPROPERTY(Transient)
 	bool bPendingCancel{ false };
 
 public:
