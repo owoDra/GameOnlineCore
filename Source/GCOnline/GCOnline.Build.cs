@@ -1,4 +1,4 @@
-// Copyright (C) 2024 owoDra
+﻿// Copyright (C) 2024 owoDra
 
 using UnrealBuildTool;
 
@@ -19,6 +19,7 @@ public class GCOnline : ModuleRules
                 ModuleDirectory + "/GCOnline/Lobby",
                 ModuleDirectory + "/GCOnline/LocalUser",
                 ModuleDirectory + "/GCOnline/Privilege",
+                ModuleDirectory + "/GCOnline/TitleFile",
             }
         );
 
