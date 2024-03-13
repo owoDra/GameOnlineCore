@@ -165,9 +165,9 @@ void UOnlineTitleFileSubsystem::HandleEnumerateFilesComplete(const TOnlineResult
 
 	const auto bSuccess{ EnumerateResult.IsOk() };
 	
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Join Lobby Completed"));
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *EnumerateResult.GetErrorValue().GetLogString());
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("Enumerate Files Completed"));
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *EnumerateResult.GetErrorValue().GetLogString());
 
 	FOnlineServiceResult ServiceResult;
 
@@ -245,9 +245,9 @@ void UOnlineTitleFileSubsystem::HandleReadFileComplete(const TOnlineResult<FTitl
 
 	const auto bSuccess{ ReadResult.IsOk() };
 
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("Join Lobby Completed"));
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
-	UE_LOG(LogGameCore_OnlineLobbies, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *ReadResult.GetErrorValue().GetLogString());
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("Read File Completed"));
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("| Result: %s"), bSuccess ? TEXT("Success") : TEXT("Failed"));
+	UE_LOG(LogGameCore_OnlineTitleFile, Log, TEXT("| Error: %s"), bSuccess ? TEXT("") : *ReadResult.GetErrorValue().GetLogString());
 
 	FOnlineServiceResult ServiceResult;
 
