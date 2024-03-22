@@ -6,6 +6,7 @@
 
 #include "Type/OnlineServiceContextTypes.h"
 #include "Type/OnlinePrivilegeTypes.h"
+#include "Type/OnlineLobbyCreateTypes.h"
 
 #include "OnlineDeveloperSettings.generated.h"
 
@@ -82,7 +83,16 @@ protected:
 	UPROPERTY(Config, BlueprintReadOnly, EditAnywhere, Category = "Lobbies", meta = (ForceInlineRow))
 	TMap<FName, FName> LobbyUserAttributeRedirects;
 
+	//
+	// Online mode for lobbies to be created by default
+	//
+	UPROPERTY(Config, BlueprintReadOnly, EditAnywhere, Category = "Lobbies")
+	ELobbyOnlineMode DefaultLobbyOnlineMode{ ELobbyOnlineMode::Online };
+
 public:
+	UFUNCTION(BlueprintCallable, Category = "Lobbies")
+	static ELobbyOnlineMode GetDefaultLobbyOnlineMode() { return GetDefault<UOnlineDeveloperSettings>()->DefaultLobbyOnlineMode; }
+
 	FName RedirectLobbyAttribute_ToOnlineService(const FName& InName) const;
 	FName RedirectLobbyAttribute_ToProject(const FName& InName) const;
 

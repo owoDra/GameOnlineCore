@@ -15,6 +15,7 @@ namespace UE::Online
 }
 using namespace UE::Online;
 
+////////////////////////////////////////////////////////////////////
 
 /**
  * Subsystem that manages the context for accessing each online service used.
@@ -68,6 +69,12 @@ public:
      */
     UFUNCTION(BlueprintCallable, Category = "Onliner Service")
     virtual bool IsOnlineServiceReady() const;
+
+    /**
+     * Returns the type of online service for the given context
+     */
+    UFUNCTION(BlueprintCallable, Category = "Onliner Service")
+    virtual EOnlineServiceType GetOnlineServiceType(EOnlineServiceContext Context) const;
 
 
     ///////////////////////////////////////////////////////////////////////

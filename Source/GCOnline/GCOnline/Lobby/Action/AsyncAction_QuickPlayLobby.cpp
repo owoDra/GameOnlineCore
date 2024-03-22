@@ -107,7 +107,7 @@ void UAsyncAction_QuickPlayLobby::StepA2_SelectLobby(ULobbySearchRequest* Search
 	}
 	else
 	{
-		HandleFailureWithResult(Result);
+		StepC1_CreateLobby();
 	}
 }
 

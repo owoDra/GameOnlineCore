@@ -169,7 +169,7 @@ void UOnlineLobbySubsystem::HandleLobbyLeaderChanged(const FLobbyLeaderChanged& 
 ULobbyCreateRequest* UOnlineLobbySubsystem::CreateOnlineLobbyCreateRequest()
 {
 	auto* NewRequest{ NewObject<ULobbyCreateRequest>(this) };
-	NewRequest->OnlineMode = ELobbyOnlineMode::Online;
+	NewRequest->OnlineMode = UOnlineDeveloperSettings::GetDefaultLobbyOnlineMode();
 
 	return NewRequest;
 }

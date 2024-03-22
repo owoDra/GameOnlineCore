@@ -104,6 +104,16 @@ bool UOnlineServiceSubsystem::IsOnlineServiceReady() const
 	return DefaultService.IsValid() || PlatformService.IsValid();
 }
 
+EOnlineServiceType UOnlineServiceSubsystem::GetOnlineServiceType(EOnlineServiceContext Context) const
+{
+	if (auto Service{ GetContextCache(Context) })
+	{
+		return static_cast<EOnlineServiceType>(Service->GetServicesProvider());
+	}
+
+	return EOnlineServiceType::None;
+}
+
 
 // Error Message
 
