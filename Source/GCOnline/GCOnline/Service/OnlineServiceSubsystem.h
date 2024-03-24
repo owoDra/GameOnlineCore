@@ -74,7 +74,7 @@ public:
      * Returns the type of online service for the given context
      */
     UFUNCTION(BlueprintCallable, Category = "Onliner Service")
-    virtual EOnlineServiceType GetOnlineServiceType(EOnlineServiceContext Context) const;
+    virtual EOnlineServiceType GetOnlineServiceType(EOnlineServiceContext Context = EOnlineServiceContext::Default) const;
 
 
     ///////////////////////////////////////////////////////////////////////
